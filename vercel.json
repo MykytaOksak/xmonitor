@@ -1,0 +1,192 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/px/canoe",
+      "destination": "https://canoe.v2.icarus.tools"
+    },
+    {
+      "source": "/px/canoe/:path*",
+      "destination": "https://canoe.v2.icarus.tools/:path*"
+    },
+    {
+      "source": "/px/oku",
+      "destination": "https://accounts.v2.icarus.tools"
+    },
+    {
+      "source": "/px/oku/:path*",
+      "destination": "https://accounts.v2.icarus.tools/:path*"
+    },
+    {
+      "source": "/px/kyber",
+      "destination": "https://aggregator-api.kyberswap.com"
+    },
+    {
+      "source": "/px/kyber/:path*",
+      "destination": "https://aggregator-api.kyberswap.com/:path*"
+    },
+    {
+      "source": "/px/openocean",
+      "destination": "https://open-api.openocean.finance"
+    },
+    {
+      "source": "/px/openocean/:path*",
+      "destination": "https://open-api.openocean.finance/:path*"
+    },
+    {
+      "source": "/px/eisen",
+      "destination": "https://api.hetz-01.eisenfinance.com"
+    },
+    {
+      "source": "/px/eisen/:path*",
+      "destination": "https://api.hetz-01.eisenfinance.com/:path*"
+    },
+    {
+      "source": "/px/enso",
+      "destination": "https://api.enso.finance"
+    },
+    {
+      "source": "/px/enso/:path*",
+      "destination": "https://api.enso.finance/:path*"
+    },
+    {
+      "source": "/px/rhea",
+      "destination": "https://smartx.rhea.finance"
+    },
+    {
+      "source": "/px/rhea/:path*",
+      "destination": "https://smartx.rhea.finance/:path*"
+    },
+    {
+      "source": "/px/jup-ultra",
+      "destination": "https://ultra-api.jup.ag"
+    },
+    {
+      "source": "/px/jup-ultra/:path*",
+      "destination": "https://ultra-api.jup.ag/:path*"
+    },
+    {
+      "source": "/px/jup-lite",
+      "destination": "https://lite-api.jup.ag"
+    },
+    {
+      "source": "/px/jup-lite/:path*",
+      "destination": "https://lite-api.jup.ag/:path*"
+    },
+    {
+      "source": "/px/avax-rpc",
+      "destination": "https://api.avax.network/ext/bc/C/rpc"
+    },
+    {
+      "source": "/px/avax-rpc/:path*",
+      "destination": "https://api.avax.network/ext/bc/C/rpc/:path*"
+    },
+    {
+      "source": "/px/fluent",
+      "destination": "https://rpc.fluent.xyz"
+    },
+    {
+      "source": "/px/fluent/:path*",
+      "destination": "https://rpc.fluent.xyz/:path*"
+    },
+    {
+      "source": "/px/binance",
+      "destination": "https://api.binance.com"
+    },
+    {
+      "source": "/px/binance/:path*",
+      "destination": "https://api.binance.com/:path*"
+    },
+    {
+      "source": "/px/bybit",
+      "destination": "https://api.bybit.com"
+    },
+    {
+      "source": "/px/bybit/:path*",
+      "destination": "https://api.bybit.com/:path*"
+    },
+    {
+      "source": "/px/tg",
+      "destination": "https://api.telegram.org"
+    },
+    {
+      "source": "/px/tg/:path*",
+      "destination": "https://api.telegram.org/:path*"
+    },
+    {
+      "source": "/px/xlayer",
+      "destination": "https://rpc.xlayer.tech"
+    },
+    {
+      "source": "/px/xlayer/:path*",
+      "destination": "https://rpc.xlayer.tech/:path*"
+    },
+    {
+      "source": "/px/ink",
+      "destination": "https://rpc-gel.inkonchain.com"
+    },
+    {
+      "source": "/px/ink/:path*",
+      "destination": "https://rpc-gel.inkonchain.com/:path*"
+    },
+    {
+      "source": "/px/okx",
+      "destination": "https://www.okx.com"
+    },
+    {
+      "source": "/px/okx/:path*",
+      "destination": "https://www.okx.com/:path*"
+    },
+    {
+      "source": "/px/plasma",
+      "destination": "https://rpc.plasma.to"
+    },
+    {
+      "source": "/px/plasma/:path*",
+      "destination": "https://rpc.plasma.to/:path*"
+    },
+    {
+      "source": "/px/base",
+      "destination": "https://mainnet.base.org"
+    },
+    {
+      "source": "/px/base/:path*",
+      "destination": "https://mainnet.base.org/:path*"
+    },
+    {
+      "source": "/px/monad",
+      "destination": "https://rpc.monad.xyz"
+    },
+    {
+      "source": "/px/monad/:path*",
+      "destination": "https://rpc.monad.xyz/:path*"
+    },
+    {
+      "source": "/px/routescan",
+      "destination": "https://api.routescan.io"
+    },
+    {
+      "source": "/px/routescan/:path*",
+      "destination": "https://api.routescan.io/:path*"
+    },
+    {
+      "source": "/px/etherscan",
+      "destination": "https://api.etherscan.io"
+    },
+    {
+      "source": "/px/etherscan/:path*",
+      "destination": "https://api.etherscan.io/:path*"
+    },
+    {
+      "source": "/px/llama",
+      "destination": "https://coins.llama.fi"
+    },
+    {
+      "source": "/px/llama/:path*",
+      "destination": "https://coins.llama.fi/:path*"
+    }
+  ]
+}

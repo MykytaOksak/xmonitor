@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+html, body { margin: 0; height: 100%; }
+body { background: #070707; font-family: 'IBM Plex Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; color: #eaeaea; }
+body::before { content: ''; position: fixed; inset: 0; z-index: 9999; pointer-events: none; opacity: .05; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+.tnum { font-variant-numeric: tabular-nums; font-family: 'IBM Plex Mono', monospace; }
+button { border-radius: 0; }
+a { color: #46B27B; text-decoration: none; }
+a:hover { color: #6ec79a; }
+.hoverrow:hover { background: rgba(255,255,255,.022) !important; }
+.opprow:hover { background: rgba(255,255,255,.03) !important; }
+.vmrow:hover { background: rgba(255,255,255,.05) !important; }
+* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.12) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); }
+::-webkit-scrollbar-track { background: transparent; }
+</style>
+</helmet>
+
+<div style="display:flex; flex-direction:row; height:100vh; background:#0B0B0B; color:#EAEAEA; overflow:hidden; position:relative">
+
+  <!-- left rail -->
+  <div style="flex:none; background:#0D0D0D; display:flex; flex-direction:column; width:52px; border-right:1px solid rgba(255,255,255,.08); align-items:stretch; padding-top:14px">
+    <div style="display:flex; justify-content:center; align-items:center; margin-bottom:22px">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="32" height="32" style="display:block; flex:none">
+        <path d="M19 15 L11 15 L11 49 L19 49" fill="none" stroke="#EAEAEA" stroke-width="4"></path>
+        <path d="M45 15 L53 15 L53 49 L45 49" fill="none" stroke="#EAEAEA" stroke-width="4"></path>
+        <text x="32" y="32" text-anchor="middle" dominant-baseline="central" font-size="23" font-family="'IBM Plex Mono', monospace" font-weight="600"><tspan fill="#EAEAEA">0</tspan><tspan fill="#46B27B">x</tspan></text>
+      </svg>
+    </div>
+    <button style="border:none; cursor:pointer; background:rgba(255,255,255,.06); color:#EAEAEA; font:600 10px 'IBM Plex Mono', monospace; letter-spacing:.1em; display:flex; align-items:center; justify-content:center; padding:16px 0; writing-mode:vertical-rl">QUOTES</button>
+    <button style="border:none; cursor:pointer; background:transparent; color:#5C5C5C; font:600 10px 'IBM Plex Mono', monospace; letter-spacing:.1em; display:flex; align-items:center; justify-content:center; padding:16px 0; writing-mode:vertical-rl">ALERTS</button>
+    <button style="border:none; cursor:pointer; background:transparent; color:#5C5C5C; font:600 10px 'IBM Plex Mono', monospace; letter-spacing:.1em; display:flex; align-items:center; justify-content:center; padding:16px 0; writing-mode:vertical-rl">PORTFOLIO</button>
+    <button style="border:none; cursor:pointer; background:transparent; color:#5C5C5C; font:600 10px 'IBM Plex Mono', monospace; letter-spacing:.1em; display:flex; align-items:center; justify-content:center; padding:16px 0; writing-mode:vertical-rl">SETTINGS</button>
+  </div>
+
+  <div style="flex:1; min-width:0; min-height:0; display:flex; flex-direction:column">
+   <div style="flex:1; min-height:0; display:flex; flex-direction:row">
+
+    <!-- ——— quotes column ——— -->
+    <div style="flex:1; min-width:0; min-height:0; display:flex; flex-direction:column">
+
+      <!-- header bar -->
+      <sc-if value="{{ showMainHeader }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex; align-items:center; flex-wrap:wrap; gap:14px; row-gap:8px; padding:12px 18px; border-bottom:1px solid rgba(255,255,255,.08); background:#0D0D0D; position:relative; z-index:5">
+        <div style="display:flex; flex-direction:column; gap:2px">
+          <span style="font:500 9px 'IBM Plex Mono', monospace; letter-spacing:.1em; color:#565656; text-transform:uppercase">LIVE QUOTES</span>
+          <div style="position:relative">
+            <button style="display:flex; align-items:center; gap:8px; background:transparent; border:none; padding:0; cursor:pointer; color:#EAEAEA">
+              <span style="font:600 17px 'IBM Plex Sans', sans-serif; white-space:nowrap">{{ headerTitle }}</span>
+              <span style="color:#565656; font-size:11px">▾</span>
+            </button>
+          </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:2px; padding-left:16px; border-left:1px solid rgba(255,255,255,.08)">
+          <span style="font:500 9px 'IBM Plex Mono', monospace; letter-spacing:.1em; color:#565656; text-transform:uppercase">{{ statLabel }}</span>
+          <span class="tnum" style="font-size:15px; color:#EAEAEA">{{ statValue }}</span>
+        </div>
+
+        <div style="margin-left:auto; display:flex; align-items:center; gap:14px">
+          <span style="display:flex; align-items:center; gap:7px; font:500 10px 'IBM Plex Mono', monospace">
+            <span style="width:5px; height:5px; flex:none; border-radius:50%; background:#46B27B; display:block"></span>
+            <span style="color:#9a9a9a">SYNCED</span>
+            <span class="tnum" style="color:#EAEAEA">14:22:07</span>
+          </span>
+          <button style="display:flex; align-items:center; gap:6px; padding:6px 11px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); color:#bcbcbc; cursor:pointer; font:500 11px 'IBM Plex Mono', monospace">⚙ Pair settings</button>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ═══ MODE 1 · SINGLE PAIR ═══ -->
+      <sc-if value="{{ isSingle }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; flex-direction:column; flex:1; min-height:0">
+          <div style="display:grid; grid-template-columns:1.5fr 1fr 1fr 1.1fr .8fr; gap:14px; padding:9px 18px; border-bottom:1px solid rgba(255,255,255,.06)">
+            <span style="font:500 10px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#565656; text-transform:uppercase">NETWORK</span>
+            <span style="font:500 10px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#EAEAEA; text-transform:uppercase">BUY ▲</span>
+            <span style="font:500 10px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#565656; text-transform:uppercase">SELL</span>
+            <span style="font:500 10px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#565656; text-transform:uppercase">ROUTER</span>
+            <span style="font:500 10px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#565656; text-transform:uppercase">STATUS</span>
+          </div>
+          <div style="flex:1; overflow-y:auto">
+            <sc-for list="{{ singleRows }}" as="r" hint-placeholder-count="6">
+              <div class="hoverrow" style="display:grid; grid-template-columns:1.5fr 1fr 1fr 1.1fr .8fr; gap:14px; align-items:center; padding:9px 18px; border-bottom:1px solid rgba(255,255,255,.04)">
+                <span style="display:flex; align-items:center; gap:9px; min-width:0">
+                  <span style="width:16px; height:16px; flex:none; display:grid; place-items:center; font:600 8px 'IBM Plex Mono', monospace; color:#fff; background:{{ r.color }}">{{ r.mono }}</span>
+                  <span style="font-size:12.5px; color:#CFCFCF; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ r.name }}</span>
+                  <span style="flex:none; font:500 8px 'IBM Plex Mono', monospace; letter-spacing:.06em; color:#46B27B">{{ r.side }}</span>
+                </span>
+                <span class="tnum" style="font-size:13px; color:{{ r.priceColor }}">{{ r.buy }}</span>
+                <span class="tnum" style="font-size:13px; color:{{ r.priceColor }}">{{ r.sell }}</span>
+                <span style="font-size:12px; color:#8A8A8A; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ r.router }}</span>
+                <span style="display:flex; align-items:center; gap:6px">
+                  <span style="width:5px; height:5px; flex:none; border-radius:50%; display:block; background:{{ r.dot }}"></span>
+                  <span style="font:500 9.5px 'IBM Plex Mono', monospace; letter-spacing:.06em; color:{{ r.dot }}">{{ r.status }}</span>
+                </span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ═══ MODE 2 · SCROLL ALL ═══ -->
+      <sc-if value="{{ isScroll }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; flex-direction:column; flex:1; min-height:0">
+          <!-- table header -->
+          <div style="display:grid; grid-template-columns:12px minmax(215px,1.5fr) minmax(72px,.9fr) minmax(96px,1fr) minmax(96px,1fr) minmax(228px,auto); gap:14px; align-items:center; padding:9px 18px 9px 15px; border-bottom:1px solid rgba(255,255,255,.06); background:#0B0B0B">
+            <span></span>
+            <span style="font:500 10px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#565656; text-transform:uppercase">PAIR</span>
+            <span style="font:500 10px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#565656; text-transform:uppercase">NOTIONAL</span>
+            <span style="font:500 10px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#565656; text-transform:uppercase">BEST BUY</span>
+            <span style="font:500 10px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#565656; text-transform:uppercase">BEST SELL</span>
+            <span></span>
+          </div>
+          <div style="flex:1; overflow-y:auto">
+            <sc-for list="{{ allPairs }}" as="p" hint-placeholder-count="12">
+             <div>
+              <!-- per-pair header -->
+              <div class="hoverrow" onClick="{{ p.onToggle }}" style="display:grid; grid-template-columns:12px minmax(215px,1.5fr) minmax(72px,.9fr) minmax(96px,1fr) minmax(96px,1fr) minmax(228px,auto); gap:14px; align-items:center; padding:12px 18px 12px 15px; background:#0D0D0D; border-bottom:1px solid rgba(255,255,255,.08); border-left:3px solid {{ p.mark }}; cursor:pointer">
+                <span style="flex:none; font:500 9px 'IBM Plex Mono', monospace; color:{{ p.caretColor }}">{{ p.caret }}</span>
+                <span style="display:flex; align-items:center; gap:9px; min-width:0; overflow:hidden">
+                  <span style="width:6px; height:6px; flex:none; display:block; background:{{ p.dot }}"></span>
+                  <span style="font:600 16px 'IBM Plex Sans', sans-serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:{{ p.nameColor }}">{{ p.name }}</span>
+                  <span style="flex:none; font:500 8.5px 'IBM Plex Mono', monospace; color:#8A8A8A; background:rgba(255,255,255,.05); padding:2px 5px; white-space:nowrap">{{ p.tag }}</span>
+                </span>
+                <span class="tnum" style="font-size:14px; color:{{ p.nameColor }}">{{ p.notional }}</span>
+                <span style="display:flex; align-items:center; gap:7px; min-width:0">
+                  <span style="width:15px; height:15px; flex:none; display:grid; place-items:center; font:600 7px 'IBM Plex Mono', monospace; color:#fff; background:{{ p.buyColor }}">{{ p.buyMono }}</span>
+                  <span class="tnum" style="font-size:14px; color:{{ p.nameColor }}">{{ p.buy }}</span>
+                </span>
+                <span style="display:flex; align-items:center; gap:7px; min-width:0">
+                  <span style="width:15px; height:15px; flex:none; display:grid; place-items:center; font:600 7px 'IBM Plex Mono', monospace; color:#fff; background:{{ p.sellColor }}">{{ p.sellMono }}</span>
+                  <span class="tnum" style="font-size:14px; color:{{ p.nameColor }}">{{ p.sell }}</span>
+                </span>
+                <div style="display:flex; align-items:center; justify-content:flex-end; gap:14px">
+                  <span onClick="{{ p.onTogglePair }}" role="button" tabindex="0" style="font:500 11px 'IBM Plex Mono', monospace; color:#8A8A8A; text-decoration:underline; text-decoration-style:dashed; text-underline-offset:3px; cursor:pointer">{{ p.enabledLabel }}</span>
+                  <button onClick="{{ p.onSettings }}" style="display:flex; align-items:center; gap:6px; padding:6px 11px; background:{{ p.gearBg }}; border:1px solid {{ p.gearBorder }}; color:{{ p.gearFg }}; cursor:pointer; font:500 11px 'IBM Plex Mono', monospace">⚙ Pair settings</button>
+                  <button onClick="{{ p.onOpen }}" title="Open in one-pair view" style="flex:none; background:transparent; border:1px solid rgba(255,255,255,.12); cursor:pointer; color:#8A8A8A; width:24px; height:24px; display:grid; place-items:center; font:500 11px 'IBM Plex Mono', monospace; padding:0">⤢</button>
+                </div>
+              </div>
+
+              <sc-if value="{{ p.settingsOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="background:#090909; border-bottom:1px solid rgba(255,255,255,.08); padding:12px 18px 16px; display:flex; gap:28px; align-items:flex-start">
+                  <div style="width:220px; flex:none; box-sizing:border-box">
+                    <span style="font-size:11px; color:#8A8A8A; display:block; margin-bottom:8px">Amount (trade size — priced at this volume)</span>
+                    <div style="display:flex; align-items:center; border:1px solid rgba(255,255,255,.16); background:#0D0D0D; box-sizing:border-box">
+                      <span style="padding:0 10px; color:#565656; font-size:12px">{{ p.unit }}</span>
+                      <span class="tnum" style="flex:1; min-width:0; color:#EAEAEA; font-size:14px; padding:9px 0">{{ p.amount }}</span>
+                    </div>
+                  </div>
+                  <div style="flex:1">
+                    <span style="font-size:11px; color:#8A8A8A; display:block; margin-bottom:8px">Networks enabled for this pair</span>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px">
+                      <sc-for list="{{ p.chips }}" as="c" hint-placeholder-count="5">
+                        <span style="display:flex; align-items:center; gap:6px; font-size:11px; font-family:'IBM Plex Sans', sans-serif; padding:5px 9px; background:rgba(70,178,123,.08); border:1px solid rgba(70,178,123,.4); color:#CFCFCF; cursor:pointer">
+                          <span style="width:13px; height:13px; flex:none; display:grid; place-items:center; font:600 7px 'IBM Plex Mono', monospace; color:#fff; background:{{ c.color }}">{{ c.mono }}</span>
+                          <span>{{ c.name }}</span>
+                        </span>
+                      </sc-for>
+                    </div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ p.expanded }}" hint-placeholder-val="{{ false }}">
+                <div>
+                  <div style="display:grid; grid-template-columns:1.5fr 1fr 1fr 1.1fr .8fr; gap:14px; padding:9px 18px; border-bottom:1px solid rgba(255,255,255,.06)">
+                    <span style="font:500 10px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#565656">NETWORK</span>
+                    <span style="font:500 10px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#565656">BUY</span>
+                    <span style="font:500 10px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#565656">SELL</span>
+                    <span style="font:500 10px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#565656">ROUTER</span>
+                    <span style="font:500 10px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#565656">STATUS</span>
+                  </div>
+                  <sc-for list="{{ p.rows }}" as="r" hint-placeholder-count="4">
+                    <div class="hoverrow" style="display:grid; grid-template-columns:1.5fr 1fr 1fr 1.1fr .8fr; gap:14px; align-items:center; padding:9px 18px; border-bottom:1px solid rgba(255,255,255,.04); background:{{ r.rowBg }}">
+                      <span style="display:flex; align-items:center; gap:9px; min-width:0">
+                        <span style="width:16px; height:16px; flex:none; display:grid; place-items:center; font:600 8px 'IBM Plex Mono', monospace; color:#fff; background:{{ r.color }}">{{ r.mono }}</span>
+                        <span style="font-size:12.5px; color:#CFCFCF; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ r.name }}</span>
+                        <span style="font:500 8px 'IBM Plex Mono', monospace; letter-spacing:.06em; color:#46B27B">{{ r.side }}</span>
+                      </span>
+                      <span class="tnum" style="font-size:13px; color:{{ r.priceColor }}">{{ r.buy }}</span>
+                      <span class="tnum" style="font-size:13px; color:{{ r.priceColor }}">{{ r.sell }}</span>
+                      <span style="font-size:12px; color:#8A8A8A; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ r.router }}</span>
+                      <span style="display:flex; align-items:center; gap:6px">
+                        <span style="width:5px; height:5px; flex:none; border-radius:50%; display:block; background:{{ r.dot }}"></span>
+                        <span style="font:500 9.5px 'IBM Plex Mono', monospace; letter-spacing:.06em; color:{{ r.dot }}">{{ r.status }}</span>
+                      </span>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+             </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ═══ MODE 3 · PARALLEL PAIRS ═══ -->
+      <sc-if value="{{ isParallel }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1; min-height:0; overflow:auto; display:grid; grid-template-columns:{{ paneCols }}; grid-auto-rows:{{ paneRows }}">
+          <sc-for list="{{ panes }}" as="pane" hint-placeholder-count="3">
+            <div style="min-width:0; min-height:0; display:flex; flex-direction:column; border-right:1px solid rgba(255,255,255,.08); border-bottom:1px solid rgba(255,255,255,.08); background:#0B0B0B; grid-column:{{ pane.span }}">
+              <div style="display:flex; align-items:center; gap:9px; padding:10px 13px; background:#0D0D0D; border-bottom:1px solid rgba(255,255,255,.06)">
+                <span style="width:6px; height:6px; flex:none; display:block; background:{{ pane.dot }}"></span>
+                <button style="display:flex; align-items:center; gap:6px; background:transparent; border:none; padding:0; cursor:pointer; color:#EAEAEA">
+                  <span style="font:600 13px 'IBM Plex Sans', sans-serif">{{ pane.name }}</span>
+                  <span style="color:#565656; font-size:10px">▾</span>
+                </button>
+                <span class="tnum" style="margin-left:auto; font-size:13px; font-weight:600; color:{{ pane.spreadColor }}">{{ pane.spread }}</span>
+                <button style="background:transparent; border:none; cursor:pointer; color:#565656; font:500 11px 'IBM Plex Mono', monospace; padding:0 2px">⚙</button>
+                <button onClick="{{ pane.onClose }}" style="background:transparent; border:none; cursor:pointer; color:#565656; font:500 11px 'IBM Plex Mono', monospace; padding:0 2px">✕</button>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:7px 13px; border-bottom:1px solid rgba(255,255,255,.04)">
+                <span style="font:500 9px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#565656">NOTIONAL</span>
+                <span class="tnum" style="font-size:11px; color:#8A8A8A">{{ pane.notional }}</span>
+                <span class="tnum" style="margin-left:auto; font-size:11px; color:{{ pane.spreadColor }}">{{ pane.profit }}</span>
+              </div>
+              <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:8px; padding:8px 13px; border-bottom:1px solid rgba(255,255,255,.06)">
+                <span style="font:500 9px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#565656">NETWORK</span>
+                <span style="font:500 9px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#565656">BUY</span>
+                <span style="font:500 9px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#565656">SELL</span>
+              </div>
+              <div style="flex:1; overflow-y:auto">
+                <sc-for list="{{ pane.rows }}" as="r" hint-placeholder-count="5">
+                  <div class="hoverrow" style="display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:8px; align-items:center; padding:8px 13px; border-bottom:1px solid rgba(255,255,255,.04); background:{{ r.rowBg }}">
+                    <span style="display:flex; align-items:center; gap:7px; min-width:0">
+                      <span style="width:13px; height:13px; flex:none; display:grid; place-items:center; font:600 7px 'IBM Plex Mono', monospace; color:#fff; background:{{ r.color }}">{{ r.mono }}</span>
+                      <span style="font-size:11.5px; color:#CFCFCF; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ r.name }}</span>
+                      <span style="flex:none; font:500 8px 'IBM Plex Mono', monospace; letter-spacing:.06em; color:#46B27B">{{ r.side }}</span>
+                    </span>
+                    <span class="tnum" style="font-size:12px; color:{{ r.buyColor }}">{{ r.buy }}</span>
+                    <span class="tnum" style="font-size:12px; color:{{ r.sellColor }}">{{ r.sell }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ showAddPane }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ addPane }}" style="min-width:0; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:9px; background:#090909; border:none; border-right:1px solid rgba(255,255,255,.08); border-bottom:1px solid rgba(255,255,255,.08); cursor:pointer">
+              <span style="width:22px; height:22px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.14); color:#8A8A8A; font:500 13px 'IBM Plex Mono', monospace">+</span>
+              <span style="font:500 10px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#565656">ADD PAIR PANE</span>
+            </button>
+          </sc-if>
+        </div>
+      </sc-if>
+    </div>
+
+    <!-- ——— opportunities feed ——— -->
+    <sc-if value="{{ feedOpen }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:none; display:flex; flex-direction:column; background:#0A0A0A; width:360px; border-left:1px solid rgba(255,255,255,.08)">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid rgba(255,255,255,.06)">
+          <div style="display:flex; align-items:center; gap:9px">
+            <span style="font:600 12px 'IBM Plex Sans', sans-serif">Opportunities</span>
+            <span style="font:500 10px 'IBM Plex Mono', monospace; color:#46B27B">5 &gt; 0.1%</span>
+          </div>
+          <button onClick="{{ collapseFeed }}" title="Collapse" style="background:transparent; border:1px solid rgba(255,255,255,.12); color:#8A8A8A; cursor:pointer; width:24px; height:24px; display:grid; place-items:center; font-size:13px; line-height:1; padding:0">›</button>
+        </div>
+        <div style="flex:1; overflow-y:auto">
+          <sc-for list="{{ opps }}" as="o" hint-placeholder-count="5">
+            <div class="opprow" onClick="{{ o.onOpen }}" style="padding:13px 16px 13px 13px; border-bottom:1px solid rgba(255,255,255,.05); border-left:3px solid {{ o.mark }}; background:{{ o.rowBg }}; cursor:pointer">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:9px">
+                <div style="display:flex; align-items:center; gap:8px">
+                  <span style="width:7px; height:7px; background:#46B27B; display:block"></span>
+                  <span style="font:600 13px 'IBM Plex Sans', sans-serif">{{ o.name }}</span>
+                  <span style="font:500 8.5px 'IBM Plex Mono', monospace; color:#8A8A8A; background:rgba(255,255,255,.05); padding:2px 5px">{{ o.tag }}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px">
+                  <span class="tnum" style="font-size:13px; font-weight:600; color:#46B27B">{{ o.spread }}</span>
+                  <button style="background:transparent; border:none; cursor:pointer; color:#565656; font-size:12px; padding:0">⚙</button>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:9px; font-size:11px; color:#8A8A8A">
+                <span style="display:flex; align-items:center; gap:5px">
+                  <span style="width:14px; height:14px; flex:none; display:grid; place-items:center; font:600 7px 'IBM Plex Mono', monospace; color:#fff; background:{{ o.buyColor }}">{{ o.buyMono }}</span>
+                  {{ o.buy }}
+                </span>
+                <span style="color:#4a4a4a">→</span>
+                <span style="display:flex; align-items:center; gap:5px">
+                  <span style="width:14px; height:14px; flex:none; display:grid; place-items:center; font:600 7px 'IBM Plex Mono', monospace; color:#fff; background:{{ o.sellColor }}">{{ o.sellMono }}</span>
+                  {{ o.sell }}
+                </span>
+                <span class="tnum" style="margin-left:auto">{{ o.notional }} · <span style="color:#46B27B">{{ o.profit }}</span></span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ feedRail }}" hint-placeholder-val="{{ false }}">
+      <div style="width:44px; flex:none; border-left:1px solid rgba(255,255,255,.08); background:#0A0A0A; display:flex; flex-direction:column; align-items:center; padding-top:12px; gap:14px">
+        <button onClick="{{ expandFeed }}" title="Expand" style="background:transparent; border:1px solid rgba(255,255,255,.12); color:#8A8A8A; cursor:pointer; width:24px; height:24px; display:grid; place-items:center; font-size:13px; line-height:1; padding:0">‹</button>
+        <span style="font:600 10px 'IBM Plex Mono', monospace; color:#46B27B; writing-mode:vertical-rl; letter-spacing:.1em">5 OPPS</span>
+        <span style="font:600 10px 'IBM Plex Mono', monospace; color:#565656; writing-mode:vertical-rl; letter-spacing:.1em">OPPORTUNITIES</span>
+      </div>
+    </sc-if>
+   </div>
+  </div>
+
+  <!-- ═══ FLOATING VIEW-MODE MENU (bottom right) ═══ -->
+  <div style="position:absolute; right:18px; bottom:18px; z-index:60; display:flex; flex-direction:column; align-items:flex-end; gap:8px">
+
+    <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ true }}">
+      <div style="width:246px; background:#111111; border:1px solid rgba(255,255,255,.14); box-shadow:0 18px 50px rgba(0,0,0,.7)">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 11px; border-bottom:1px solid rgba(255,255,255,.06)">
+          <span style="font:500 9px 'IBM Plex Mono', monospace; letter-spacing:.12em; color:#565656">VIEW MODE</span>
+          <span style="font:500 9px 'IBM Plex Mono', monospace; letter-spacing:.08em; color:#565656">⌥ 1–3</span>
+        </div>
+
+        <button class="vmrow" onClick="{{ goSingle }}" style="display:flex; align-items:center; gap:10px; width:100%; text-align:left; padding:10px 11px; background:{{ singleBg }}; border:none; border-bottom:1px solid rgba(255,255,255,.05); cursor:pointer">
+          <span style="width:20px; height:14px; flex:none; display:grid; grid-template-rows:3px 3px 3px; gap:2px; padding:1px; border:1px solid {{ singleIcon }}">
+            <span style="background:{{ singleIcon }}; opacity:.85; display:block"></span>
+            <span style="background:{{ singleIcon }}; opacity:.5; display:block"></span>
+            <span style="background:{{ singleIcon }}; opacity:.5; display:block"></span>
+          </span>
+          <span style="display:flex; flex-direction:column; gap:2px; min-width:0">
+            <span style="font:500 11px 'IBM Plex Mono', monospace; letter-spacing:.06em; color:{{ singleFg }}">ONE PAIR</span>
+            <span style="font:400 10px 'IBM Plex Sans', sans-serif; color:#565656">Full network table</span>
+          </span>
+          <span style="margin-left:auto; font:500 9px 'IBM Plex Mono', monospace; color:#565656">1</span>
+        </button>
+
+        <button class="vmrow" onClick="{{ goScroll }}" style="display:flex; align-items:center; gap:10px; width:100%; text-align:left; padding:10px 11px; background:{{ scrollBg }}; border:none; border-bottom:1px solid rgba(255,255,255,.05); cursor:pointer">
+          <span style="width:20px; height:14px; flex:none; display:grid; grid-template-rows:2px 2px 2px 2px; gap:1.5px; padding:1px; border:1px solid {{ scrollIcon }}">
+            <span style="background:{{ scrollIcon }}; opacity:.8; display:block"></span>
+            <span style="background:{{ scrollIcon }}; opacity:.65; display:block"></span>
+            <span style="background:{{ scrollIcon }}; opacity:.5; display:block"></span>
+            <span style="background:{{ scrollIcon }}; opacity:.35; display:block"></span>
+          </span>
+          <span style="display:flex; flex-direction:column; gap:2px; min-width:0">
+            <span style="font:500 11px 'IBM Plex Mono', monospace; letter-spacing:.06em; color:{{ scrollFg }}">ALL PAIRS</span>
+            <span style="font:400 10px 'IBM Plex Sans', sans-serif; color:#565656">One scroll, best route each</span>
+          </span>
+          <span style="margin-left:auto; font:500 9px 'IBM Plex Mono', monospace; color:#565656">2</span>
+        </button>
+
+        <button class="vmrow" onClick="{{ goParallel }}" style="display:flex; align-items:center; gap:10px; width:100%; text-align:left; padding:10px 11px 8px; background:{{ parBg }}; border:none; cursor:pointer">
+          <span style="width:20px; height:14px; flex:none; display:grid; grid-template-columns:1fr 1fr; gap:2px; padding:1px; border:1px solid {{ parIcon }}">
+            <span style="background:{{ parIcon }}; opacity:.75; display:block"></span>
+            <span style="background:{{ parIcon }}; opacity:.5; display:block"></span>
+          </span>
+          <span style="display:flex; flex-direction:column; gap:2px; min-width:0">
+            <span style="font:500 11px 'IBM Plex Mono', monospace; letter-spacing:.06em; color:{{ parFg }}">PARALLEL</span>
+            <span style="font:400 10px 'IBM Plex Sans', sans-serif; color:#565656">Watch {{ paneCount }} pairs at once</span>
+          </span>
+          <span style="margin-left:auto; font:500 9px 'IBM Plex Mono', monospace; color:#565656">3</span>
+        </button>
+
+        <div style="display:flex; align-items:center; gap:6px; padding:0 11px 10px 41px; background:{{ parBg }}">
+          <sc-for list="{{ counts }}" as="c" hint-placeholder-count="3">
+            <button onClick="{{ c.onPick }}" style="flex:1; padding:5px 0; cursor:pointer; font:500 10px 'IBM Plex Mono', monospace; background:{{ c.bg }}; border:1px solid {{ c.border }}; color:{{ c.fg }}">{{ c.label }}</button>
+          </sc-for>
+        </div>
+
+      </div>
+    </sc-if>
+
+    <button onClick="{{ toggleMenu }}" style="display:flex; align-items:center; gap:9px; padding:9px 12px; background:#111111; border:1px solid {{ fabBorder }}; box-shadow:0 10px 30px rgba(0,0,0,.6); cursor:pointer; color:#EAEAEA">
+      <span style="width:16px; height:12px; flex:none; display:grid; grid-template-columns:{{ fabIconCols }}; gap:1.5px; padding:1px; border:1px solid #46B27B">
+        <sc-for list="{{ fabCells }}" as="cell" hint-placeholder-count="1">
+          <span style="background:#46B27B; opacity:{{ cell.opacity }}; display:block"></span>
+        </sc-for>
+      </span>
+      <span style="font:500 10px 'IBM Plex Mono', monospace; letter-spacing:.1em; color:#CFCFCF">{{ fabLabel }}</span>
+      <span style="font-size:9px; color:#565656">{{ fabCaret }}</span>
+    </button>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;defaultMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;single&quot;,&quot;scroll&quot;,&quot;parallel&quot;],&quot;default&quot;:&quot;single&quot;,&quot;tsType&quot;:&quot;'single' | 'scroll' | 'parallel'&quot;,&quot;section&quot;:&quot;View mode&quot;},&quot;defaultPaneCount&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[2,3,4],&quot;default&quot;:3,&quot;tsType&quot;:&quot;2 | 3 | 4&quot;,&quot;section&quot;:&quot;View mode&quot;},&quot;menuOpenByDefault&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;View mode&quot;}}">
+const C = {
+  text: '#EAEAEA', chipText: '#CFCFCF', secondary: '#8A8A8A', body: '#6A6A6A', label: '#565656',
+  green: '#46B27B', red: '#D25A5F',
+  greenBg06: 'rgba(70,178,123,.06)', greenBg08: 'rgba(70,178,123,.08)', greenBg14: 'rgba(70,178,123,.14)',
+  greenBorder45: 'rgba(70,178,123,.45)', borderMid: 'rgba(255,255,255,.1)',
+};
+
+const N = {
+  ethereum: ['Ethereum', 'Ξ', '#6E79D6'], arbitrum: ['Arbitrum', 'A', '#3E7FD0'],
+  optimism: ['Optimism', 'O', '#D0524F'], base: ['Base', 'B', '#3358D0'],
+  bnb: ['BNB Chain', 'N', '#C9A227'], avalanche: ['Avalanche', 'AV', '#C94F4F'],
+  mantle: ['Mantle', 'M', '#6FA095'], katana: ['Katana', 'K', '#B08A3E'],
+  ink: ['Ink', 'I', '#6E5CD0'], plasma: ['Plasma', 'PL', '#4FA08A'],
+  hyperevm: ['Hyper EVM', 'H', '#4FA6A0'], monad: ['Monad', 'MO', '#7B6BD6'],
+  solana: ['Solana', 'S', '#7A5CD0'], movement: ['Movement', 'MV', '#B0B04F'],
+  fluent: ['Fluent', 'F', '#5C8AD0'], xlayer: ['X Layer', 'XL', '#4F86C9'],
+  okxCex: ['OKX', 'OK', '#9AA0A6'], binanceCex: ['Binance', 'BN', '#B99A3E'],
+};
+
+const fmtSpread = (p) => `${p >= 0 ? '+' : ''}${p.toFixed(Math.abs(p) >= 0.1 ? 2 : 3)}%`;
+const fmtProfit = (p, n, unit) => {
+  const v = (n * p) / 100, sign = v >= 0 ? '+' : '−', abs = Math.abs(v);
+  return unit === 'ETH' ? `${sign}${abs.toFixed(3)} ETH`
+    : `${sign}$${abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+const fmtNotional = (n, unit) => (unit === 'ETH' ? `${n} ETH` : `$${n.toLocaleString('en-US')}`);
+
+// pair fixtures: [t0,t1,unit,notional,dp,spread,tag,buyNet,buy,sellNet,sell,nets,disabled]
+const PAIRS = [
+  ['sUSDe', 'USDC', '$', 50000, 5, 0.477, 'CROSS', 'hyperevm', 0.99742, 'mantle', 1.00218,
+    ['ethereum', 'arbitrum', 'mantle', 'monad', 'hyperevm', 'plasma']],
+  ['GHO', 'USDC', '$', 50000, 5, 0.312, 'CROSS', 'ink', 0.99811, 'arbitrum', 1.00123,
+    ['ethereum', 'arbitrum', 'base', 'ink', 'monad', 'plasma']],
+  ['SPYx', 'USDG', '$', 5000, 3, 0.286, 'CEX/DEX', 'okxCex', 641.204, 'solana', 643.038,
+    ['okxCex', 'solana', 'xlayer']],
+  ['savUSD', 'USDC', '$', 50000, 5, 0.241, 'MINT/REDEEM', 'avalanche', 1.02418, 'monad', 1.02665,
+    ['ethereum', 'avalanche', 'movement', 'monad']],
+  ['AUSD', 'USDC', '$', 50000, 5, 0.194, 'CROSS', 'katana', 0.99902, 'avalanche', 1.00096,
+    ['ethereum', 'avalanche', 'katana', 'monad']],
+  ['USDe', 'USDC', '$', 50000, 5, 0.121, 'CROSS', 'plasma', 0.99931, 'hyperevm', 1.00052,
+    ['ethereum', 'mantle', 'monad', 'hyperevm', 'plasma', 'solana']],
+  ['wstETH', 'WETH', 'ETH', 15, 5, 0.088, 'CROSS', 'monad', 1.20841, 'ethereum', 1.20947,
+    ['ethereum', 'katana', 'plasma', 'monad']],
+  ['USDC', 'USDT', '$', 50000, 5, 0.041, 'SAME-CHAIN', 'binanceCex', 0.99978, 'arbitrum', 1.00019,
+    ['binanceCex', 'ethereum', 'arbitrum', 'bnb', 'avalanche', 'monad', 'solana']],
+  ['weETH', 'WETH', 'ETH', 15, 5, 0.019, 'CROSS', 'katana', 1.07213, 'ethereum', 1.07233,
+    ['ethereum', 'katana', 'plasma', 'monad']],
+  ['msUSD', 'USDC', '$', 50000, 5, -0.012, 'CROSS', 'base', 0.99884, 'optimism', 0.99872,
+    ['ethereum', 'optimism', 'base', 'plasma']],
+  ['USDG', 'USDC', '$', 50000, 5, -0.033, 'CROSS', 'solana', 0.99961, 'ink', 0.99928,
+    ['ethereum', 'ink', 'solana', 'xlayer']],
+  ['NVDAx', 'USDG', '$', 5000, 3, -0.061, 'CEX/DEX', 'solana', 178.442, 'okxCex', 178.333,
+    ['okxCex', 'solana', 'xlayer']],
+  ['apxUSD', 'USDC', '$', 50000, 5, -0.104, 'CROSS', 'bnb', 1.00412, 'base', 1.00308,
+    ['ethereum', 'base', 'bnb']],
+  ['THBILL', 'USDC', '$', 50000, 5, null, 'CROSS', null, null, null, null,
+    ['arbitrum', 'hyperevm'], true],
+  ['sUSDnr', 'USDnr', '$', 50000, 5, null, 'STAKE/UNSTAKE', null, null, null, null,
+    ['fluent'], true],
+];
+
+// per-network quote fixtures for the tables: pairIdx -> [net, buy, sell, router, status]
+const ROWS = {
+  0: [
+    ['hyperevm', 0.99742, 1.00087, 'KyberSwap', 'live'],
+    ['arbitrum', 0.99904, 1.00061, 'KyberSwap', 'live'],
+    ['ethereum', 0.99871, 1.00142, 'Oku Flowstream', 'live'],
+    ['plasma', 0.99988, 1.00164, 'KyberSwap', 'live'],
+    ['mantle', 1.00003, 1.00218, 'OpenOcean v4', 'live'],
+    ['monad', null, null, 'thin/broken liquidity', 'error'],
+  ],
+  1: [
+    ['ink', 0.99811, 0.99994, 'Velodrome CL', 'live'],
+    ['base', 0.99903, 1.00047, 'KyberSwap', 'live'],
+    ['ethereum', 0.99942, 1.00098, 'Oku Flowstream', 'live'],
+    ['arbitrum', 0.99977, 1.00123, 'KyberSwap', 'live'],
+    ['monad', null, null, 'no deploy', 'error'],
+    ['plasma', null, null, 'no deploy', 'error'],
+  ],
+  2: [
+    ['okxCex', 641.204, 641.988, 'OKX book', 'live'],
+    ['xlayer', 642.117, 642.744, 'Uniswap v3', 'live'],
+    ['solana', 642.503, 643.038, 'Jupiter Ultra', 'live'],
+  ],
+  3: [
+    ['avalanche', 1.02418, 1.02537, 'savUSD mint', 'live'],
+    ['ethereum', 1.02501, 1.02602, 'Oku Flowstream', 'live'],
+    ['monad', 1.02544, 1.02665, 'Oku Flowstream', 'live'],
+    ['movement', null, null, 'no aggregator', 'error'],
+  ],
+  4: [
+    ['katana', 0.99902, 1.00021, 'Eisen', 'live'],
+    ['ethereum', 0.99958, 1.00044, 'Oku Flowstream', 'live'],
+    ['avalanche', 1.00011, 1.00096, 'KyberSwap', 'live'],
+    ['monad', null, null, 'thin/broken liquidity', 'error'],
+  ],
+  5: [
+    ['plasma', 0.99931, 1.00004, 'KyberSwap', 'live'],
+    ['solana', 0.99958, 1.00021, 'Jupiter Ultra', 'live'],
+    ['ethereum', 0.99974, 1.00038, 'Oku Flowstream', 'live'],
+    ['hyperevm', 0.99989, 1.00052, 'KyberSwap', 'live'],
+    ['mantle', 1.00007, 1.00048, 'OpenOcean v4', 'live'],
+    ['monad', null, null, 'SYNC', 'loading'],
+  ],
+};
+
+class Component extends DCLogic {
+  state = {
+    mode: this.props.defaultMode ?? 'single',
+    paneCount: this.props.defaultPaneCount ?? 3,
+    menuOpen: this.props.menuOpenByDefault ?? true,
+    sel: 0,
+    feed: 'auto', // 'auto' | 'open' | 'rail'
+    expanded: { 0: true },
+    settingsFor: null,
+    off: {},
+  };
+
+  componentDidMount() {
+    this.onKey = (e) => {
+      if (e.target && /input|textarea/i.test(e.target.tagName || '')) return;
+      if (e.key === '1') this.setState({ mode: 'single' });
+      if (e.key === '2') this.setState({ mode: 'scroll' });
+      if (e.key === '3') this.setState({ mode: 'parallel' });
+      if (e.key === '4') this.setState({ mode: 'parallel', paneCount: 4 });
+    };
+    window.addEventListener('keydown', this.onKey);
+  }
+  componentWillUnmount() { window.removeEventListener('keydown', this.onKey); }
+
+  feedState() {
+    const { mode, feed } = this.state;
+    if (feed !== 'auto') return feed;
+    // parallel needs the width; single + scroll keep the feed docked.
+    return mode === 'parallel' ? 'rail' : 'open';
+  }
+
+  pairVM(i) {
+    const [t0, t1, unit, notional, dp, spread, tag, buyNet, buy, sellNet, sell, nets, off0] = PAIRS[i];
+    const o = this.state.off[i];
+    const disabled = o === undefined ? !!off0 : o;
+    const ok = !disabled && spread != null;
+    return {
+      i, name: `${t0}/${t1}`, unit, notional, dp, spread, tag, nets, disabled,
+      buyNet, sellNet, buy, sell, ok,
+      spreadStr: ok ? fmtSpread(spread) : '—',
+      profitStr: ok ? fmtProfit(spread, notional, unit) : '—',
+      notionalStr: fmtNotional(notional, unit),
+      spreadColor: !ok ? C.label : spread >= 0.1 ? C.green : spread >= 0 ? C.secondary : C.red,
+    };
+  }
+
+  rowsFor(i, dp, p) {
+    const list = ROWS[i] ?? ROWS[0];
+    const buyNet = p && p.buyNet, sellNet = p && p.sellNet;
+    return list.map(([net, buy, sell, router, status]) => {
+      const dot = status === 'live' ? C.green : status === 'error' ? C.red : C.body;
+      return {
+        side: net === buyNet ? 'BUY' : net === sellNet ? 'SELL' : '',
+        rowBg: 'transparent',
+        name: N[net][0], mono: N[net][1], color: N[net][2],
+        buy: buy == null ? '—' : buy.toFixed(dp),
+        sell: sell == null ? '—' : sell.toFixed(dp),
+        router, dot,
+        status: status === 'live' ? 'LIVE' : status === 'error' ? 'ERR' : 'LOADING',
+        priceColor: status === 'live' ? C.text : C.label,
+      };
+    });
+  }
+
+  renderVals() {
+    const { mode, paneCount, menuOpen, sel } = this.state;
+    const cur = this.pairVM(sel);
+    const feed = this.feedState();
+
+    const singleRows = this.rowsFor(sel, cur.dp, cur);
+
+    const exp = this.state.expanded;
+    const allPairs = PAIRS.map((_, i) => {
+      const p = this.pairVM(i);
+      const selected = i === sel;
+      const open = !!exp[i] && !p.disabled;
+      const detailRows = open
+        ? this.rowsFor(i, p.dp, p)
+        : [];
+      const gearOpen = this.state.settingsFor === i;
+      return {
+        expanded: open,
+        rows: detailRows,
+        caret: p.disabled ? '·' : open ? '▾' : '▸',
+        caretColor: open ? C.green : C.label,
+        onToggle: () => this.setState((s) => ({ expanded: { ...s.expanded, [i]: !s.expanded[i] } })),
+        unit: p.unit, amount: String(p.notional),
+        chips: p.nets.map((n) => ({ name: N[n][0], mono: N[n][1], color: N[n][2] })),
+        enabledLabel: p.disabled ? 'disabled' : 'enabled',
+        onTogglePair: (e) => {
+          if (e) e.stopPropagation();
+          this.setState((s) => ({ off: { ...s.off, [i]: !s.off[i] } }));
+        },
+        settingsOpen: gearOpen,
+        gearBg: gearOpen ? C.greenBg14 : 'rgba(255,255,255,.04)',
+        gearBorder: gearOpen ? C.greenBorder45 : C.borderMid,
+        gearFg: gearOpen ? C.green : '#bcbcbc',
+        onSettings: (e) => {
+          if (e) e.stopPropagation();
+          this.setState((s) => ({ settingsFor: s.settingsFor === i ? null : i }));
+        },
+        name: p.name, tag: p.tag, spread: p.spreadStr, profit: p.profitStr,
+        notional: p.notionalStr, spreadColor: p.spreadColor,
+        nameColor: p.disabled ? C.label : C.text,
+        dot: p.disabled ? C.label : p.ok ? C.green : C.red,
+        mark: selected ? C.green : 'transparent',
+        rowBg: selected ? C.greenBg06 : 'transparent',
+        buy: p.buy == null ? '—' : p.buy.toFixed(p.dp),
+        sell: p.sell == null ? '—' : p.sell.toFixed(p.dp),
+        buyMono: p.buyNet ? N[p.buyNet][1] : '·', buyColor: p.buyNet ? N[p.buyNet][2] : '#2a2a2a',
+        sellMono: p.sellNet ? N[p.sellNet][1] : '·', sellColor: p.sellNet ? N[p.sellNet][2] : '#2a2a2a',
+        venues: p.nets.slice(0, 6).map((n) => ({
+          mono: N[n][1], color: N[n][2], opacity: p.disabled ? 0.3 : 1,
+        })),
+        onOpen: (e) => { if (e) e.stopPropagation(); this.setState({ sel: i, mode: 'single' }); },
+      };
+    });
+
+    const panes = Array.from({ length: paneCount }, (_, k) => {
+      const idx = (sel + k) % 6;
+      const p = this.pairVM(idx);
+      const rows = this.rowsFor(idx, p.dp, p).map((r) => ({
+        ...r,
+        buyColor: r.priceColor, sellColor: r.priceColor,
+      }));
+      return {
+        name: p.name, spread: p.spreadStr, spreadColor: p.spreadColor,
+        profit: p.profitStr, notional: p.notionalStr,
+        dot: p.ok ? C.green : C.red, rows,
+        span: paneCount === 3 && k === 2 ? 'span 2' : 'auto',
+        onClose: () => this.setState({ paneCount: Math.max(2, paneCount - 1) }),
+      };
+    });
+
+    const opps = PAIRS.map((_, i) => this.pairVM(i))
+      .filter((p) => p.ok && p.spread >= 0.1)
+      .map((p) => ({
+        name: p.name, tag: p.tag, spread: p.spreadStr, profit: p.profitStr, notional: p.notionalStr,
+        buy: p.buy.toFixed(p.dp), sell: p.sell.toFixed(p.dp),
+        buyMono: N[p.buyNet][1], buyColor: N[p.buyNet][2],
+        sellMono: N[p.sellNet][1], sellColor: N[p.sellNet][2],
+        mark: p.i === sel ? C.green : 'transparent',
+        rowBg: p.i === sel ? C.greenBg06 : 'transparent',
+        onOpen: () => this.setState({ sel: p.i, mode: 'single' }),
+      }));
+
+    const on = (m) => mode === m;
+    const seg = (active) => ({
+      bg: active ? C.greenBg14 : 'transparent',
+      border: active ? C.greenBorder45 : C.borderMid,
+      fg: active ? C.green : C.secondary,
+    });
+
+    const fabCells =
+      mode === 'single' ? [{ opacity: 0.9 }]
+      : mode === 'scroll' ? [{ opacity: 0.85 }, { opacity: 0.6 }, { opacity: 0.4 }]
+      : Array.from({ length: Math.min(paneCount, 3) }, (_, k) => ({ opacity: 0.9 - k * 0.2 }));
+
+    return {
+      // header
+      headerTitle: mode === 'parallel' ? `${paneCount} pairs · parallel` : cur.name,
+      statLabel: mode === 'parallel' ? 'MONITORED' : 'NOTIONAL',
+      statValue: mode === 'parallel' ? `${PAIRS.length} pairs · ${opps.length} live opps` : cur.notionalStr,
+
+      showMainHeader: !on('scroll'),
+      isSingle: on('single'), isScroll: on('scroll'), isParallel: on('parallel'),
+      singleRows, allPairs, panes, opps,
+
+      paneCols: paneCount === 2 ? '1fr 1fr' : '1fr 1fr',
+      paneRows: paneCount === 2 ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) minmax(0, 1fr)',
+      showAddPane: false,
+      addPane: () => this.setState({ paneCount: Math.min(4, paneCount + 1) }),
+
+      feedOpen: feed === 'open', feedRail: feed === 'rail',
+      collapseFeed: () => this.setState({ feed: 'rail' }),
+      expandFeed: () => this.setState({ feed: 'open' }),
+      toggleFeed: () => this.setState({ feed: feed === 'open' ? 'rail' : 'open' }),
+      feedBtnLabel: feed === 'open' ? 'SHOWN' : 'HIDDEN',
+      feedBtnBg: feed === 'open' ? C.greenBg14 : 'transparent',
+      feedBtnBorder: feed === 'open' ? C.greenBorder45 : C.borderMid,
+      feedBtnFg: feed === 'open' ? C.green : C.secondary,
+
+      // floating menu
+      menuOpen, paneCount,
+      toggleMenu: () => this.setState({ menuOpen: !menuOpen }),
+      goSingle: () => this.setState({ mode: 'single' }),
+      goScroll: () => this.setState({ mode: 'scroll' }),
+      goParallel: () => this.setState({ mode: 'parallel' }),
+      singleBg: on('single') ? C.greenBg08 : 'transparent',
+      singleFg: on('single') ? C.green : C.chipText,
+      singleIcon: on('single') ? C.green : C.body,
+      scrollBg: on('scroll') ? C.greenBg08 : 'transparent',
+      scrollFg: on('scroll') ? C.green : C.chipText,
+      scrollIcon: on('scroll') ? C.green : C.body,
+      parBg: on('parallel') ? C.greenBg08 : 'transparent',
+      parFg: on('parallel') ? C.green : C.chipText,
+      parIcon: on('parallel') ? C.green : C.body,
+      counts: [2, 3, 4].map((n) => ({
+        label: `${n}`,
+        ...seg(on('parallel') && paneCount === n),
+        onPick: () => this.setState({ mode: 'parallel', paneCount: n }),
+      })),
+
+      fabLabel: mode === 'single' ? 'ONE PAIR' : mode === 'scroll' ? 'ALL PAIRS' : `PARALLEL ×${paneCount}`,
+      fabCaret: menuOpen ? '▾' : '▴',
+      fabBorder: menuOpen ? C.greenBorder45 : 'rgba(255,255,255,.14)',
+      fabIconCols: `repeat(${fabCells.length}, 1fr)`,
+      fabCells,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

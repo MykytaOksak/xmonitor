@@ -1,0 +1,11 @@
+{
+  "name": "XARB · Cross-Chain Arbitrage Monitor",
+  "short_name": "XARB",
+  "icons": [
+    { "src": "/xarb-cursor-white-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/xarb-cursor-white-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "theme_color": "#0B0B0B",
+  "background_color": "#070707",
+  "display": "standalone"
+}

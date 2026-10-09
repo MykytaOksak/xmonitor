@@ -1,0 +1,33 @@
+{
+  "name": "xmonitor",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@galacticcouncil/api-augment": "^0.10.0",
+    "@galacticcouncil/sdk": "^10.8.0",
+    "@polkadot/api": "~16.4.8",
+    "@polkadot/api-augment": "~16.4.8",
+    "@polkadot/types": "~16.4.8",
+    "@polkadot/util": "~13.5.6",
+    "@polkadot/util-crypto": "~13.5.6",
+    "buffer": "^6.0.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "viem": "^2.56.8",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vite-plugin-wasm": "^3.6.0"
+  }
+}

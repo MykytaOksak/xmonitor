@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+
+# Secrets — never commit. See .env.example for the variable names.
+.env
+.env.*
+!.env.example
+
+# Local Claude Code settings (contain machine-specific permissions)
+.claude/
