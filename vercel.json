@@ -46,11 +46,11 @@
     },
     {
       "source": "/px/enso",
-      "destination": "https://api.enso.finance"
+      "destination": "/api/px?__svc=enso&__path="
     },
     {
       "source": "/px/enso/:path*",
-      "destination": "https://api.enso.finance/:path*"
+      "destination": "/api/px?__svc=enso&__path=:path*"
     },
     {
       "source": "/px/rhea",
@@ -110,11 +110,11 @@
     },
     {
       "source": "/px/tg",
-      "destination": "https://api.telegram.org"
+      "destination": "/api/px?__svc=tg&__path="
     },
     {
       "source": "/px/tg/:path*",
-      "destination": "https://api.telegram.org/:path*"
+      "destination": "/api/px?__svc=tg&__path=:path*"
     },
     {
       "source": "/px/xlayer",
@@ -174,11 +174,11 @@
     },
     {
       "source": "/px/etherscan",
-      "destination": "https://api.etherscan.io"
+      "destination": "/api/px?__svc=etherscan&__path="
     },
     {
       "source": "/px/etherscan/:path*",
-      "destination": "https://api.etherscan.io/:path*"
+      "destination": "/api/px?__svc=etherscan&__path=:path*"
     },
     {
       "source": "/px/llama",

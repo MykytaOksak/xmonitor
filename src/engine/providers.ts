@@ -448,11 +448,10 @@ const eisen: Provider = async ({ net, tokenIn, tokenOut, amountInHuman }) => {
 };
 
 // ——— Enso (Ink) — POST with array token fields; needs an API key ———
-// Enso now rejects keyless requests (403). Set VITE_ENSO_KEY in .env.local
-// (get one at https://developers.enso.build) to quote Ink pairs.
-const ENSO_KEY = import.meta.env.VITE_ENSO_KEY as string | undefined;
+// Enso rejects keyless requests (403). The key is attached server-side by the
+// /px/enso function (api/_keyed.ts) from ENSO_KEY, so it never ships to the
+// browser. https://developers.enso.build
 const enso: Provider = async ({ net, tokenIn, tokenOut, amountInHuman }) => {
-  if (!ENSO_KEY) throw new Error('enso: set VITE_ENSO_KEY to quote Ink');
   const j = await jpost(
     'enso',
     `${BASE.enso}/api/v1/shortcuts/route`,
@@ -466,7 +465,6 @@ const enso: Provider = async ({ net, tokenIn, tokenOut, amountInHuman }) => {
       slippage: '100',
       routingStrategy: 'router',
     },
-    { Authorization: `Bearer ${ENSO_KEY}` },
   );
   const out = findOutAmount(j);
   if (out == null) throw new Error('enso: no amountOut');

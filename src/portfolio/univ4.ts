@@ -12,7 +12,6 @@ import type { Position, PositionToken } from './reader';
 
 const ETHERSCAN = '/px/etherscan';
 const LLAMA = '/px/llama';
-const ETHERSCAN_KEY = (import.meta.env.VITE_ETHERSCAN_KEY as string | undefined) ?? '';
 
 // ——— compact keccak256 (for poolId + storage slots) ———
 const M64 = (1n << 64n) - 1n;
@@ -128,11 +127,11 @@ async function fetchPricesLlama(chain: string, addresses: string[]): Promise<Rec
  * re-verified on-chain in readPositions, so a stale transfer list is harmless.
  */
 async function enumerateViaEtherscan(proto: ProtocolV4Def, wallet: string): Promise<string[]> {
-  if (!ETHERSCAN_KEY) return [];
+  // apikey is appended server-side by /px/etherscan from ETHERSCAN_KEY.
   const url =
     `${ETHERSCAN}/v2/api?chainid=${proto.etherscanChainId}&module=account&action=tokennfttx` +
     `&address=${wallet}&contractaddress=${proto.positionManager}` +
-    `&page=1&offset=1000&startblock=0&endblock=latest&sort=asc&apikey=${ETHERSCAN_KEY}`;
+    `&page=1&offset=1000&startblock=0&endblock=latest&sort=asc`;
   try {
     const j: any = await fetch(url).then((r) => r.json());
     if (j.status !== '1' || !Array.isArray(j.result)) return [];

@@ -31,7 +31,7 @@ export type NetworkId =
 //  kyberswap        — KyberSwap aggregator, fallback / main EVM quote
 //  openocean        — OpenOcean v4, fallback when Canoe market = openocean
 //  eisen            — Eisen, Katana with internal split fallback
-//  enso             — Enso, Ink (needs VITE_ENSO_KEY)
+//  enso             — Enso, Ink (needs ENSO_KEY, attached server-side)
 //  jupiter          — Jupiter Ultra with Lite fallback, Solana
 //  avalanche-savusd-mintredeem — Avalanche savUSD direct mint/redeem preview
 //  fluent-susdnr-stakeunstake — Fluent sUSDnr/USDnr Nerona stake/unstake preview
@@ -125,7 +125,7 @@ export const NETWORKS: Record<NetworkId, Network> = {
   ink: {
     id: 'ink', name: 'Ink', mono: 'I', color: '#6E5CD0', kind: 'evm',
     chainId: 57073,
-    // Oku doesn't support Ink and Enso needs a working VITE_ENSO_KEY (the one
+    // Oku doesn't support Ink and Enso needs a working ENSO_KEY (the one
     // we have 403s), so quote Ink's Velodrome Slipstream pools directly.
     routes: ['ink-cl', 'enso'],
   },

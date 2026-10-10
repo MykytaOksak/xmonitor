@@ -1,4 +1,4 @@
-import { defineConfig, type ProxyOptions } from 'vite';
+import { defineConfig, loadEnv, type Plugin, type ProxyOptions } from 'vite';
 import react from '@vitejs/plugin-react';
 // The Hydration SDK ships its pool math as WASM and reaches for node's Buffer.
 // Both need help in a browser build; neither affects the rest of the app.
@@ -9,11 +9,11 @@ import wasm from 'vite-plugin-wasm';
 // rewrites them in production, and the dev server mirrors the same table here,
 // so the two environments cannot drift apart.
 import vercel from './vercel.json';
+import { KEYED_SERVICES, handleKeyed, type KeyedEnv } from './api/_keyed';
 
-// Dev-server proxies work around CORS for quote APIs that do not send
-// Access-Control-Allow-Origin. In production builds the app calls the
-// real origins directly (see src/engine/providers.ts) — endpoints that
-// block browser CORS will surface as ERR rows, which the design supports.
+// The /px/* proxies exist because most quote APIs don't send
+// Access-Control-Allow-Origin. Vercel provides them in production; this is the
+// dev-server equivalent.
 //
 // The timeouts + error handler below stop the long-running dev server from
 // leaking sockets/file descriptors across the portfolio monitor's thousands of
@@ -46,14 +46,65 @@ const proxy = (target: string): ProxyOptions => ({
   },
 });
 
+// Plain upstreams only: the keyed ones rewrite to the /api/px function, which
+// the middleware below stands in for.
 const devProxies: Record<string, ProxyOptions> = Object.fromEntries(
   vercel.rewrites
-    .filter((r) => !r.source.includes(':path*'))
+    .filter((r) => !r.source.includes(':path*') && r.destination.startsWith('http'))
     .map((r) => [r.source, proxy(r.destination)]),
 );
 
-export default defineConfig({
-  plugins: [react(), wasm()],
+const KEYED_PATH = new RegExp(`^/px/(${KEYED_SERVICES.join('|')})(?:/(.*))?$`);
+
+/**
+ * Runs the same handler as the production Edge Function (api/_keyed.ts), so
+ * secrets are attached — and Telegram is filtered — identically in dev. Keys
+ * come from .env.local under their server-side names.
+ */
+function keyedUpstreams(env: KeyedEnv): Plugin {
+  return {
+    name: 'xarb-keyed-upstreams',
+    configureServer(server) {
+      server.middlewares.use(async (req: any, res: any, next: any) => {
+        const u = new URL(req.url ?? '/', 'http://localhost');
+        const m = u.pathname.match(KEYED_PATH);
+        if (!m) return next();
+        try {
+          const chunks: Uint8Array[] = [];
+          for await (const c of req) chunks.push(c);
+          const body = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
+          let at = 0;
+          for (const c of chunks) {
+            body.set(c, at);
+            at += c.length;
+          }
+          const r = await handleKeyed(
+            {
+              svc: m[1],
+              path: m[2] ?? '',
+              params: u.searchParams,
+              method: req.method ?? 'GET',
+              contentType: req.headers['content-type'] ?? null,
+              body: body.length ? body.buffer : null,
+            },
+            env,
+          );
+          res.statusCode = r.status;
+          res.setHeader('content-type', r.headers.get('content-type') ?? 'application/json');
+          res.end(new Uint8Array(await r.arrayBuffer()));
+        } catch (e) {
+          res.statusCode = 502;
+          res.setHeader('content-type', 'application/json');
+          res.end(JSON.stringify({ ok: false, description: String((e as Error)?.message ?? e) }));
+        }
+      });
+    },
+  };
+}
+
+export default defineConfig(({ mode }) => ({
+  // '' prefix: load every variable, not just VITE_ ones — these stay in Node.
+  plugins: [react(), wasm(), keyedUpstreams(loadEnv(mode, '.', '') as KeyedEnv)],
   resolve: { alias: { buffer: 'buffer/' } },
   define: { global: 'globalThis' },
   build: { target: 'esnext' },
@@ -61,4 +112,4 @@ export default defineConfig({
   server: {
     proxy: devProxies,
   },
-});
+}));

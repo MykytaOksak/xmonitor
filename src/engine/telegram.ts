@@ -1,16 +1,15 @@
 import { useApp } from '../state/store';
 
-// Direct browser -> Telegram Bot API (no backend). The bot token is baked in
-// (VITE_TG_BOT_TOKEN) so users just open the deep link and press Start; the
-// captured chat id is persisted, so the connection is remembered across reloads.
-// In dev the call is proxied by Vite. NOTE: the token is exposed in the bundle.
+// Telegram Bot API through /px/tg. The bot token never reaches the browser: the
+// server-side function (api/_keyed.ts) adds it from TG_BOT_TOKEN, allows only
+// getMe / sendMessage / getUpdates, and filters getUpdates down to the caller's
+// own /start. Users just open the deep link and press Start; the captured chat
+// id is persisted, so the connection is remembered across reloads.
 const TG = '/px/tg';
-const BOT_TOKEN = import.meta.env.VITE_TG_BOT_TOKEN as string | undefined;
 
 const api = async (method: string, params?: Record<string, string>) => {
-  if (!BOT_TOKEN) throw new Error('telegram: VITE_TG_BOT_TOKEN not set');
   const qs = params ? `?${new URLSearchParams(params)}` : '';
-  const r = await fetch(`${TG}/bot${BOT_TOKEN}/${method}${qs}`);
+  const r = await fetch(`${TG}/${method}${qs}`);
   const j = await r.json();
   if (!j.ok) throw new Error(j.description ?? `telegram: ${method} failed`);
   return j.result;
@@ -23,7 +22,6 @@ let pollTimer: ReturnType<typeof setInterval> | undefined;
 
 /** Fetch the bot username once so the deep link renders correctly up-front. */
 export async function initTelegram(): Promise<void> {
-  if (!BOT_TOKEN) return;
   try {
     const me = await api('getMe');
     const s = useApp.getState();
@@ -46,10 +44,6 @@ export async function initTelegram(): Promise<void> {
  * getUpdates until the user presses Start; capture their chat id and persist it.
  */
 export async function connectTelegram(): Promise<void> {
-  if (!BOT_TOKEN) {
-    useApp.getState().set({ tgState: 'error' });
-    return;
-  }
   const { profileId, set } = useApp.getState();
   set({ tgState: 'connecting' });
   try {
@@ -66,16 +60,13 @@ export async function connectTelegram(): Promise<void> {
         return;
       }
       try {
-        const updates = await api('getUpdates', { timeout: '0', limit: '30' });
+        // The server returns only this profile's own /start, so a match is ours.
+        const updates = await api('getUpdates', { profile: profileId });
         for (const u of updates ?? []) {
-          const parts = String(u.message?.text ?? '').split(' ');
-          // Match this profile's /start payload (or a bare /start as fallback).
-          if (parts[0] === '/start' && (parts.length < 2 || parts[1] === profileId)) {
+          if (String(u.message?.text ?? '').trim() === `/start ${profileId}`) {
             clearInterval(pollTimer);
             const chatId = String(u.message.chat.id);
             useApp.getState().set({ tgChatId: chatId, tgState: 'connected' });
-            // Acknowledge the update so the queue doesn't keep replaying it.
-            void api('getUpdates', { offset: String(u.update_id + 1), timeout: '0' });
             void api('sendMessage', {
               chat_id: chatId,
               text: `✓ Connected to XARB monitor (profile ${profileId}). Price alerts will arrive here.`,
@@ -100,7 +91,7 @@ export function disconnectTelegram(): void {
 /** Send a message to the connected chat. Returns true only if it was delivered. */
 export async function sendTelegram(text: string): Promise<boolean> {
   const { tgState, tgChatId } = useApp.getState();
-  if (tgState !== 'connected' || !BOT_TOKEN || !tgChatId) return false;
+  if (tgState !== 'connected' || !tgChatId) return false;
   try {
     await api('sendMessage', { chat_id: tgChatId, text });
     return true;
