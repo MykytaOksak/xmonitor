@@ -50,7 +50,7 @@ export const PAIRS: PairConfig[] = [
   P('weETH', 'WETH', ['ethereum', 'katana', 'plasma', 'monad'], { unit: 'ETH', defaultNotional: 15 }),
   P('GHO', 'USDC', ['ethereum', 'arbitrum', 'base', 'ink', 'monad', 'plasma']),
   P('USDC', 'USDT', ['binanceCex', 'ethereum', 'arbitrum', 'bnb', 'avalanche', 'monad', 'solana']),
-  P('sUSDAI', 'USDC', ['ethereum', 'arbitrum', 'base', 'plasma']),
+  P('sUSDAI', 'USDC', ['ethereum', 'arbitrum', 'base', 'plasma', 'solana']),
   P('THBILL', 'USDC', ['arbitrum', 'hyperevm']),
   P('AUSD', 'USDC', ['ethereum', 'avalanche', 'katana', 'monad']),
   P('USD1', 'USDC', ['binanceCex', 'ethereum', 'bnb', 'solana']),

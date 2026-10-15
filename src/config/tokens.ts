@@ -169,6 +169,9 @@ export const TOKENS: TokenMap = {
     arbitrum: T('0x0b2b2b2076d95dda7817e785989fe353fe955ef9', 18),
     base: T('0x0B2b2B2076d95dda7817e785989fE353fe955ef9', 18),
     plasma: T('0x0b2b2b2076d95dda7817e785989fe353fe955ef9', 18),
+    // Token-2022 mint "Staked USDai", 6 dp (unlike the 18 dp EVM deployments).
+    // No scaled-UI-amount extension, so Jupiter's raw amounts need no rescaling.
+    solana: T('sUSDai6Y3GxysDEtA9BVcEFTaog6UZpYUVxJiMhAKYE', 6),
   },
   THBILL: {
     arbitrum: T('0xfDD22Ce6D1F66bc0Ec89b20BF16CcB6670F55A5a', 6),
