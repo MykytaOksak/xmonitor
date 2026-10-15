@@ -332,7 +332,7 @@ function PairPicker({
                   setHint(null);
                 }}
                 onMouseEnter={() =>
-                  setHint(v.disabled ? 'Click to enable this pair' : 'Click to disable this pair')
+                  setHint(v.disabled ? 'Click to enable' : 'Click to disable')
                 }
                 onMouseLeave={() => setHint(null)}
               >
@@ -377,10 +377,13 @@ function PairPicker({
               <span style={{ fontSize: 13, lineHeight: 1 }}>+</span>
               <span style={{ letterSpacing: '.06em' }}>ADD CUSTOM PAIR</span>
             </button>
-            {/* Kept mounted but transparent so the row never reflows. */}
+            {/* Zero intrinsic width (flex-basis 0, width 0): the hint only fills
+                the space left beside the button and never widens the dropdown,
+                which is sized by its content. Text that doesn't fit ellipsizes. */}
             <span
               style={{
-                marginLeft: 'auto',
+                flex: '1 1 0',
+                width: 0,
                 minWidth: 0,
                 padding: '0 13px',
                 whiteSpace: 'nowrap',
