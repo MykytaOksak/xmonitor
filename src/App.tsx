@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { AlertsView } from './components/AlertsView';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { PortfolioView } from './components/PortfolioView';
 import { QuotesView } from './components/QuotesView';
 import { Rail } from './components/Rail';
@@ -38,10 +39,14 @@ export default function App() {
     >
       <Rail horizontal={narrow} />
       <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        {view === 'quotes' && <QuotesView />}
-        {view === 'alerts' && <AlertsView />}
-        {view === 'portfolio' && <PortfolioView />}
-        {view === 'settings' && <SettingsView />}
+        {/* Inside App, so a view that throws is contained here: App stays
+            mounted and its effect keeps the quote engine and alerts running. */}
+        <ErrorBoundary scope={`view:${view}`} resetKey={view}>
+          {view === 'quotes' && <QuotesView />}
+          {view === 'alerts' && <AlertsView />}
+          {view === 'portfolio' && <PortfolioView />}
+          {view === 'settings' && <SettingsView />}
+        </ErrorBoundary>
       </div>
     </div>
   );

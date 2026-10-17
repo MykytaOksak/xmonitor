@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { RULES_DISPLAY } from '../config/pairs';
+import { clearCrashes, readCrashes } from '../crashlog';
 import { refreshNow } from '../engine/engine';
 import { effectiveSync, useApp } from '../state/store';
 import { C, capsLabel, mono, sans } from '../theme';
@@ -123,6 +125,9 @@ export function SettingsView() {
           </div>
         </div>
 
+        {/* DIAGNOSTICS */}
+        <Diagnostics />
+
         {/* LOCAL DATA */}
         <div style={{ borderTop: `1px solid ${C.borderFaint}`, paddingTop: 20 }}>
           <span style={{ ...capsLabel(10, C.sectionLabel), display: 'block', marginBottom: 6 }}>
@@ -153,6 +158,74 @@ export function SettingsView() {
     </div>
   );
 }
+
+/** Runtime crashes caught by the error boundaries and global handlers. */
+function Diagnostics() {
+  const [crashes, setCrashes] = useState(readCrashes);
+  const [copied, setCopied] = useState(false);
+  const recent = [...crashes].reverse();
+
+  return (
+    <div style={{ borderTop: `1px solid ${C.borderFaint}`, paddingTop: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+        <span style={capsLabel(10, C.sectionLabel)}>DIAGNOSTICS</span>
+        <span style={{ ...mono(10, 500), color: crashes.length ? C.red : C.label }}>
+          {crashes.length} recorded
+        </span>
+        {crashes.length > 0 && (
+          <span style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <button
+              onClick={async () => {
+                await navigator.clipboard.writeText(JSON.stringify(crashes, null, 2));
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              }}
+              style={smallBtn}
+            >
+              {copied ? 'Copied' : 'Copy log'}
+            </button>
+            <button
+              onClick={() => {
+                clearCrashes();
+                setCrashes([]);
+              }}
+              style={smallBtn}
+            >
+              Clear
+            </button>
+          </span>
+        )}
+      </div>
+      {crashes.length === 0 ? (
+        <span style={{ ...sans(11), color: C.body }}>No crashes recorded in this browser.</span>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {recent.slice(0, 8).map((c) => (
+            <div
+              key={`${c.at}-${c.scope}`}
+              style={{ display: 'flex', gap: 10, ...mono(10, 500), alignItems: 'baseline' }}
+            >
+              <span className="tnum" style={{ color: C.label, flex: 'none' }}>
+                {new Date(c.at).toLocaleString('en-GB')}
+              </span>
+              <span style={{ color: C.secondary, flex: 'none' }}>{c.scope}</span>
+              <span style={{ color: C.red, wordBreak: 'break-word' }}>{c.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const smallBtn: React.CSSProperties = {
+  padding: '5px 10px',
+  background: 'transparent',
+  border: `1px solid ${C.borderMid}`,
+  color: C.chipText,
+  cursor: 'pointer',
+  ...mono(10, 500),
+};
 
 const fieldLabel: React.CSSProperties = {
   fontSize: 11,
