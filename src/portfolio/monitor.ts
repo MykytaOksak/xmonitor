@@ -4,7 +4,7 @@
 // of wallets (EVM and/or Movement). State is exposed via a tiny
 // subscribe/getSnapshot store for useSyncExternalStore.
 import { fetchWalletPositions, parseAddresses, type Position } from './reader';
-import { sendTelegram } from '../engine/telegram';
+import { sendBotNotification } from '../engine/bot';
 import { useApp } from '../state/store';
 import { setBackgroundInterval } from '../engine/timers';
 
@@ -112,7 +112,7 @@ function notify(e: RangeEvent) {
 
 /**
  * Deliver any events not yet pushed to Telegram. This retries on every scan, so
- * flips detected before Telegram was connected (or while offline) still arrive
+ * flips detected before the bot was linked (or while it was unreachable) still arrive
  * once the connection is live — delivery is no longer one-shot at flip time.
  */
 async function flushTelegram() {
@@ -120,7 +120,7 @@ async function flushTelegram() {
   let changed = false;
   for (const e of state.events) {
     if (e.sent) continue;
-    if (await sendTelegram(eventText(e))) {
+    if (await sendBotNotification(eventText(e))) {
       e.sent = true;
       changed = true;
     } else {
@@ -183,7 +183,7 @@ async function scan(kind: 'scanning' | 'refreshing') {
       nextRefreshAt: Date.now() + REFRESH_MS,
     });
 
-    // Push any events not yet delivered to Telegram (retries once connected).
+    // Push any events not yet delivered to Telegram (retries once the bot is reachable).
     if (state.alertsOn) void flushTelegram();
   } catch (e) {
     setState({ status: 'error', error: e instanceof Error ? e.message : 'Failed to load positions' });
@@ -272,11 +272,11 @@ export function initPortfolioMonitor() {
   if (started) return;
   started = true;
 
-  // Flush pending alerts the moment Telegram connects (don't wait for the next scan).
-  let lastTg = useApp.getState().tgState;
+  // Flush pending alerts the moment the bot comes online (don't wait for the next scan).
+  let lastBot = useApp.getState().botState;
   useApp.subscribe((s) => {
-    if (s.tgState === 'connected' && lastTg !== 'connected') void flushTelegram();
-    lastTg = s.tgState;
+    if (s.botState === 'online' && lastBot !== 'online') void flushTelegram();
+    lastBot = s.botState;
   });
 
   if (state.wallets.length) {

@@ -1,7 +1,7 @@
-// Vercel Edge Function behind /px/enso, /px/etherscan and /px/tg (see the
-// rewrites in vercel.json). Secrets come from the project's environment
-// variables — ENSO_KEY, ETHERSCAN_KEY, TG_BOT_TOKEN — which never reach the
-// browser. The rules live in _keyed.ts, shared with the dev server.
+// Vercel Edge Function behind /px/enso and /px/etherscan (see the rewrites
+// in vercel.json). Secrets come from the project's environment variables —
+// ENSO_KEY and ETHERSCAN_KEY — which never reach the browser. The rules live
+// in _keyed.ts, shared with the dev server and the bot server.
 import { handleKeyed } from './_keyed';
 
 export const config = { runtime: 'edge' };

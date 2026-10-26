@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server": "node --env-file-if-exists=.env.local --disable-warning=ExperimentalWarning --import tsx server/main.ts"
   },
   "dependencies": {
     "@galacticcouncil/api-augment": "^0.10.0",
@@ -19,10 +20,12 @@
     "buffer": "^6.0.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "tsx": "^4.23.15",
     "viem": "^2.56.8",
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@types/node": "^24.19.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",

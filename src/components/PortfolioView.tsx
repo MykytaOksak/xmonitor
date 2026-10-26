@@ -28,7 +28,7 @@ const short = (a: string) => (a.length > 14 ? `${a.slice(0, 6)}…${a.slice(-4)}
 
 export function PortfolioView() {
   const m = useSyncExternalStore(subscribe, getSnapshot);
-  const tgState = useApp((s) => s.tgState);
+  const botOnline = useApp((s) => s.botState === 'online');
   const [input, setInput] = useState('');
   const [now, setNow] = useState(Date.now());
 
@@ -233,7 +233,7 @@ export function PortfolioView() {
           <span style={{ ...mono(9, 400), color: C.label, marginTop: -8 }}>
             Alerts fire when a position flips in/out of range — shown below
             {typeof Notification !== 'undefined' && Notification.permission === 'granted' ? ', as browser notifications' : ''}
-            {tgState === 'connected' ? ', and sent to Telegram' : ' (connect Telegram in the Alerts tab to also receive them there)'}.
+            {botOnline ? ', and sent to Telegram by your bot' : ' (link your bot in the Alerts tab to also receive them in Telegram)'}.
           </span>
         )}
 

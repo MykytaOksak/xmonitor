@@ -58,7 +58,7 @@ const KEYED_PATH = new RegExp(`^/px/(${KEYED_SERVICES.join('|')})(?:/(.*))?$`);
 
 /**
  * Runs the same handler as the production Edge Function (api/_keyed.ts), so
- * secrets are attached — and Telegram is filtered — identically in dev. Keys
+ * secrets are attached identically in dev. Keys
  * come from .env.local under their server-side names.
  */
 function keyedUpstreams(env: KeyedEnv): Plugin {
@@ -102,14 +102,19 @@ function keyedUpstreams(env: KeyedEnv): Plugin {
   };
 }
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }) => {
   // '' prefix: load every variable, not just VITE_ ones — these stay in Node.
-  plugins: [react(), wasm(), keyedUpstreams(loadEnv(mode, '.', '') as KeyedEnv)],
-  resolve: { alias: { buffer: 'buffer/' } },
-  define: { global: 'globalThis' },
-  build: { target: 'esnext' },
-  optimizeDeps: { esbuildOptions: { target: 'esnext' } },
-  server: {
-    proxy: devProxies,
-  },
-}));
+  const env = loadEnv(mode, '.', '');
+  return {
+    plugins: [react(), wasm(), keyedUpstreams(env as KeyedEnv)],
+    resolve: { alias: { buffer: 'buffer/' } },
+    define: { global: 'globalThis' },
+    build: { target: 'esnext' },
+    optimizeDeps: { esbuildOptions: { target: 'esnext' } },
+    server: {
+      // BOT_URL points /px/bot at a bot server on this machine instead of the
+      // hosted one (npm run server).
+      proxy: { ...devProxies, ...(env.BOT_URL ? { '/px/bot': proxy(env.BOT_URL) } : {}) },
+    },
+  };
+});

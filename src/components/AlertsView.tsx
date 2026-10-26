@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { NET } from '../config/networks';
 import { allPairs, pairById, pairName } from '../config/pairs';
-import { connectTelegram, deepLink, disconnectTelegram } from '../engine/telegram';
+import { connectBot, disconnectBot } from '../engine/bot';
+import { fmtAge } from '../engine/format';
 import type { PairAlert } from '../engine/types';
 import { defaultAlert, useApp } from '../state/store';
 import { C, mono, sans } from '../theme';
@@ -13,13 +15,6 @@ export function AlertsView() {
   const pair = pairById(s.alertSel);
   const alert: PairAlert =
     s.drafts[s.alertSel] ?? s.savedAlerts[s.alertSel] ?? defaultAlert(s.alertSel, s.snapshots);
-
-  const tgVM = {
-    connected: { dot: C.green, color: C.green, label: 'CONNECTED', blink: false },
-    connecting: { dot: C.body, color: C.secondary, label: 'CONNECTING', blink: true },
-    disconnected: { dot: C.body, color: C.secondary, label: 'DISCONNECTED', blink: false },
-    error: { dot: C.red, color: C.red, label: 'ERROR', blink: false },
-  }[s.tgState];
 
   const saveVM = {
     idle: { label: '', color: C.secondary, blink: false },
@@ -195,6 +190,7 @@ export function AlertsView() {
             // matches the editor's toggles (an untouched pair reads OFF).
             const draft = s.drafts[p.id] ?? s.savedAlerts[p.id];
             const hasAlert = !!draft && (draft.buy.enabled || draft.sell.enabled);
+            const paused = hasAlert && !!s.savedAlerts[p.id]?.paused;
             return (
               <button
                 key={p.id}
@@ -216,9 +212,13 @@ export function AlertsView() {
               >
                 <span style={{ ...sans(12, 600), color: C.text }}>{pairName(p)}</span>
                 <span
-                  style={{ marginLeft: 'auto', ...mono(9, 500), color: hasAlert ? C.green : C.label }}
+                  style={{
+                    marginLeft: 'auto',
+                    ...mono(9, 500),
+                    color: paused ? C.secondary : hasAlert ? C.green : C.label,
+                  }}
                 >
-                  {hasAlert ? 'SET' : 'OFF'}
+                  {paused ? 'PAUSED' : hasAlert ? 'SET' : 'OFF'}
                 </span>
               </button>
             );
@@ -239,7 +239,25 @@ export function AlertsView() {
           }}
         >
           <span style={sans(16, 600)}>{pairName(pair)}</span>
-          <span style={{ ...mono(10, 400), color: C.label }}>profile {s.profileId}</span>
+          {s.savedAlerts[s.alertSel]?.paused && (
+            <>
+              <span style={{ ...mono(10, 500), color: C.secondary }}>PAUSED</span>
+              <button
+                onClick={() => s.setAlertPaused(s.alertSel, false)}
+                style={{
+                  marginLeft: 'auto',
+                  padding: '5px 11px',
+                  cursor: 'pointer',
+                  ...mono(10, 500),
+                  background: 'transparent',
+                  border: `1px solid ${C.borderMid}`,
+                  color: C.chipText,
+                }}
+              >
+                Resume
+              </button>
+            </>
+          )}
         </div>
 
         <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -248,69 +266,16 @@ export function AlertsView() {
             {sideCard('sell', 'SELL PRICE ALERT')}
           </div>
 
-          {/* telegram row */}
-          <div
-            style={{
-              background: C.panel,
-              border: `1px solid ${C.border}`,
-              padding: '14px 15px',
-              display: 'flex',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: 12,
-              rowGap: 10,
-            }}
-          >
-            <span
-              style={{
-                width: 20,
-                height: 20,
-                flex: 'none',
-                display: 'grid',
-                placeItems: 'center',
-                ...mono(10, 600),
-                color: '#fff',
-                background: C.tgBlue,
-              }}
-            >
-              T
-            </span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ ...sans(12, 500), color: C.text }}>Telegram alerts</span>
-              <span style={{ ...mono(10, 400), color: C.label }}>{deepLink(s.tgBot, s.profileId)}</span>
-            </div>
-            <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <StatusDot color={tgVM.dot} blink={tgVM.blink} />
-              <span style={{ ...mono(10, 500), color: tgVM.color }}>{tgVM.label}</span>
-            </span>
-            <button
-              onClick={() => (s.tgState === 'connected' ? disconnectTelegram() : void connectTelegram())}
-              disabled={s.tgState === 'connecting'}
-              style={{
-                padding: '7px 13px',
-                cursor: 'pointer',
-                ...mono(11, 500),
-                background: s.tgState === 'connected' ? 'transparent' : 'rgba(42,163,224,.12)',
-                border: `1px solid ${
-                  s.tgState === 'connected' ? 'rgba(255,255,255,.14)' : 'rgba(42,163,224,.45)'
-                }`,
-                color: s.tgState === 'connected' ? C.secondary : C.tgBlueText,
-              }}
-            >
-              {s.tgState === 'connected'
-                ? 'Disconnect'
-                : s.tgState === 'connecting'
-                  ? 'Connecting…'
-                  : 'Connect Telegram'}
-            </button>
-          </div>
+          <BotPanel />
 
           {/* save bar */}
           <div
             style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 14, rowGap: 8, paddingTop: 4 }}
           >
             <span style={{ ...mono(10, 400), color: C.label }}>
-              Alerts bound to hosted profile {s.profileId}
+              {s.botToken
+                ? 'Saved to your bot server — checked around the clock'
+                : 'Kept in this browser only until a bot is linked'}
             </span>
             <span
               style={{
@@ -348,6 +313,138 @@ export function AlertsView() {
     </div>
   );
 }
+
+/**
+ * The link to the bot server: paste its access key once, then alerts and
+ * sizes are shared with it and its recent notifications are listed here.
+ */
+function BotPanel() {
+  const s = useApp();
+  const [key, setKey] = useState('');
+  const vm = {
+    off: { dot: C.body, color: C.secondary, label: 'NOT LINKED', blink: false },
+    connecting: { dot: C.body, color: C.secondary, label: 'LINKING', blink: true },
+    online: { dot: C.green, color: C.green, label: 'ONLINE', blink: false },
+    offline: { dot: C.red, color: C.red, label: 'UNREACHABLE', blink: false },
+    unauthorized: { dot: C.red, color: C.red, label: 'WRONG KEY', blink: false },
+  }[s.botState];
+  const st = s.botStatus;
+  const detail = !s.botToken
+    ? 'Alerts are checked and sent by your bot server. Paste its access key to link this site.'
+    : st
+      ? [
+          st.botUsername ? `@${st.botUsername}` : 'bot token not set',
+          `watching ${st.watching.length} pair${st.watching.length === 1 ? '' : 's'}`,
+          st.lastScanAt ? `last check ${fmtAge(Date.now() - st.lastScanAt)}` : 'no check yet',
+          ...(st.ownerLinked ? [] : ['no owner chat set']),
+        ].join(' · ')
+      : s.botState === 'unauthorized'
+        ? 'The server rejected this key.'
+        : 'Waiting for the bot server…';
+
+  return (
+    <div style={{ background: C.panel, border: `1px solid ${C.border}` }}>
+      <div
+        style={{
+          padding: '14px 15px',
+          display: 'flex',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+          rowGap: 10,
+        }}
+      >
+        <span
+          style={{
+            width: 20,
+            height: 20,
+            flex: 'none',
+            display: 'grid',
+            placeItems: 'center',
+            ...mono(10, 600),
+            color: '#fff',
+            background: C.tgBlue,
+          }}
+        >
+          T
+        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: '1 1 220px' }}>
+          <span style={{ ...sans(12, 500), color: C.text }}>Telegram bot</span>
+          <span style={{ ...mono(10, 400), color: C.label }}>{detail}</span>
+        </div>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <StatusDot color={vm.dot} blink={vm.blink} />
+          <span style={{ ...mono(10, 500), color: vm.color }}>{vm.label}</span>
+        </span>
+        {s.botToken ? (
+          <button onClick={disconnectBot} style={botBtn(false)}>
+            Unlink
+          </button>
+        ) : (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (key.trim()) void connectBot(key).then(() => setKey(''));
+            }}
+            style={{ display: 'flex', gap: 8 }}
+          >
+            <input
+              type="password"
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+              placeholder="Access key"
+              autoComplete="off"
+              style={{
+                width: 150,
+                background: C.header,
+                border: `1px solid ${C.borderInput}`,
+                color: C.text,
+                fontSize: 12,
+                padding: '6px 9px',
+              }}
+            />
+            <button type="submit" style={botBtn(true)}>
+              Link
+            </button>
+          </form>
+        )}
+      </div>
+
+      {s.botToken && s.botHistory.length > 0 && (
+        <div style={{ borderTop: `1px solid ${C.borderFaint}`, padding: '10px 15px 12px' }}>
+          <span style={{ ...fieldLabel, marginBottom: 8 }}>Recent notifications</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 180, overflowY: 'auto' }}>
+            {s.botHistory.map((n) => (
+              <div key={n.id} style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
+                <span style={{ ...mono(10, 400), color: C.label, flex: 'none' }}>
+                  {new Date(n.at).toLocaleString('en-GB', {
+                    day: '2-digit',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+                <span style={{ ...mono(10, 400), color: n.delivered ? C.secondary : C.red, minWidth: 0 }}>
+                  {n.text}
+                  {n.delivered ? '' : ' (not delivered)'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const botBtn = (primary: boolean): React.CSSProperties => ({
+  padding: '7px 13px',
+  cursor: 'pointer',
+  ...mono(11, 500),
+  background: primary ? 'rgba(42,163,224,.12)' : 'transparent',
+  border: `1px solid ${primary ? 'rgba(42,163,224,.45)' : 'rgba(255,255,255,.14)'}`,
+  color: primary ? C.tgBlueText : C.secondary,
+});
 
 const fieldLabel: React.CSSProperties = {
   fontSize: 10,

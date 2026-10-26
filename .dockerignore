@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+.claude
+.env
+.env.*
+data
+public
+design_handoff*
+*.md
+!server/README.md

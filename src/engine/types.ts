@@ -36,7 +36,6 @@ export interface PairSnapshot {
 
 export type SyncState = 'synced' | 'syncing' | 'stale' | 'error';
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error';
-export type TgState = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 export interface SideAlert {
   enabled: boolean;
@@ -51,4 +50,41 @@ export interface SideAlert {
 export interface PairAlert {
   buy: SideAlert;
   sell: SideAlert;
+  /** Muted from the bot: both sides keep their settings but nothing fires. */
+  paused?: boolean;
+}
+
+/**
+ * Settings shared between the website and the bot server. The server holds
+ * the copy of record; both sides edit it one key at a time.
+ */
+export interface SharedSettings {
+  savedAlerts: Record<string, PairAlert>;
+  amounts: Record<string, number>;
+  disabledNets: Record<string, boolean>;
+  customPairs: import('../config/pairs').CustomPairSpec[];
+}
+
+/** One key-level edit: set `value`, or delete the key when it is null. */
+export type SettingsOp =
+  | { section: 'savedAlerts'; key: string; value: PairAlert | null }
+  | { section: 'amounts'; key: string; value: number | null }
+  | { section: 'disabledNets'; key: string; value: boolean | null }
+  | { section: 'customPairs'; key: string; value: import('../config/pairs').CustomPairSpec | null };
+
+export interface BotNotification {
+  id: number;
+  at: number;
+  kind: 'price' | 'portfolio' | 'system';
+  text: string;
+  delivered: boolean;
+}
+
+export interface BotStatus {
+  startedAt: number;
+  lastScanAt: number;
+  /** Pairs the server is currently quoting (those with an active alert). */
+  watching: string[];
+  botUsername: string | null;
+  ownerLinked: boolean;
 }

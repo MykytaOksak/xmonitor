@@ -1,10 +1,9 @@
 import { NET, NETWORKS, type NetworkId } from '../config/networks';
 import { allPairs, pairById, type PairConfig } from '../config/pairs';
 import { isXStock, tokenOn, type TokenDeployment } from '../config/tokens';
-import { fmtPrice, nowTime } from './format';
+import { nowTime } from './format';
 import { quote } from './providers';
 import { refreshRates, usdcUsdtRate, vaultRate, xstockUiScale, xstockWrapRate } from './rates';
-import { sendTelegram } from './telegram';
 import { setBackgroundTimeout } from './timers';
 import { defaultAlert, useApp } from '../state/store';
 import type { NetQuote } from './types';
@@ -34,6 +33,12 @@ interface ResolvedToken {
  * hours. Zero means "cannot price yet", which callers turn into ERR.
  */
 const APX_RATE_MAX_AGE_MS = 10 * 60_000; // a couple of missed scan cycles
+/**
+ * Pairs whose quotes are read while pricing another. A process that scans
+ * only some pairs (the bot server watches just the ones with alerts) must
+ * scan these too, or the dependent rows error.
+ */
+export const PAIR_DEPENDS: Record<string, string[]> = { 'apyUSD-apxUSD': ['apxUSD-USDC'] };
 const _apxUsdc = { buy: 0, sell: 0, at: 0 };
 function apxUsdcRates(): { buy: number; sell: number } {
   const row = useApp.getState().snapshots['apxUSD-USDC']?.rows.ethereum;
@@ -269,77 +274,14 @@ async function scanPair(pair: PairConfig): Promise<boolean> {
   return rows.some((r) => r.status === 'live');
 }
 
-// ——— alert evaluation (client-side; the app has no backend) ———
-// Alert cooldowns are kept in localStorage and re-read on every pass rather
-// than cached in a module variable: a second app tab (or a duplicated module
-// after HMR) is a separate engine with its own memory, and each one would fire
-// the same alert while the other's write went unseen — which is how a 30-minute
-// cooldown produced two identical messages a second apart.
-const FIRED_KEY = 'xmonitor.fired';
-
-function readFired(): Record<string, number> {
-  try {
-    return JSON.parse(localStorage.getItem(FIRED_KEY) ?? '{}');
-  } catch {
-    return {};
-  }
-}
-
-function writeFired(fired: Record<string, number>): void {
-  try {
-    localStorage.setItem(FIRED_KEY, JSON.stringify(fired));
-  } catch {
-    /* ignore quota/serialisation errors */
-  }
-}
-
-function evalAlerts() {
-  const s = useApp.getState();
-  const now = Date.now();
-  const lastFired = readFired();
-  for (const [pairId, alert] of Object.entries(s.savedAlerts)) {
-    if (s.disabledPairs[pairId]) continue;
-    const pair = pairById(pairId);
-    const snap = s.snapshots[pairId];
-    if (!snap) continue;
-    for (const side of ['buy', 'sell'] as const) {
-      const cfg = alert[side];
-      if (!cfg.enabled) continue;
-      const target = parseFloat(cfg.price);
-      if (!isFinite(target)) continue;
-      const cooldownMs = Math.max(1, parseInt(cfg.cooldown || '15', 10)) * 60_000;
-      const key = `${pairId}:${side}`;
-      if (now - (lastFired[key] ?? 0) < cooldownMs) continue;
-
-      for (const netId of pair.networks) {
-        if (s.disabledNets[`${pairId}:${netId}`]) continue;
-        const netName = NET(netId).name;
-        if (cfg.netMode === 'selected' && cfg.nets[netName] === false) continue;
-        const row = snap.rows[netId];
-        if (!row || row.status !== 'live') continue;
-        const price = side === 'buy' ? row.buy : row.sell;
-        if (price == null) continue;
-        const crossed = cfg.op === 'above' ? price >= target : price <= target;
-        if (!crossed) continue;
-
-        // Re-read immediately before committing so a fire from another tab
-        // between this pass starting and now still wins the cooldown.
-        const fresh = readFired();
-        if (now - (fresh[key] ?? 0) < cooldownMs) break;
-        fresh[key] = now;
-        lastFired[key] = now;
-        writeFired(fresh);
-        const text =
-          `⚡ ${pair.t0}/${pair.t1} ${side.toUpperCase()} on ${netName}: ` +
-          `${fmtPrice(price, pair.dp)} is ${cfg.op} target ${cfg.price}`;
-        void sendTelegram(text);
-        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-          new Notification('XARB alert', { body: text });
-        }
-        break; // one firing per side per cooldown window
-      }
-    }
-  }
+// ——— end-of-cycle hook ———
+// Alerts are evaluated by the bot server (server/alerts.ts), which runs this
+// same engine; the browser only displays quotes. Listeners run after every
+// full cycle, once all pairs have settled.
+const cycleListeners = new Set<() => void>();
+export function onScanCycle(fn: () => void): () => void {
+  cycleListeners.add(fn);
+  return () => cycleListeners.delete(fn);
 }
 
 // ——— scan loop ———
@@ -379,7 +321,13 @@ export async function scanAll(): Promise<void> {
       lastSync: nowTime(),
       lastSyncAt: Date.now(),
     });
-    evalAlerts();
+    for (const fn of cycleListeners) {
+      try {
+        fn();
+      } catch {
+        /* a listener must not break the scan loop */
+      }
+    }
   } catch {
     useApp.getState().set({ engineSync: 'error' });
   } finally {

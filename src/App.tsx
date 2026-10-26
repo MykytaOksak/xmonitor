@@ -6,7 +6,7 @@ import { QuotesView } from './components/QuotesView';
 import { Rail } from './components/Rail';
 import { SettingsView } from './components/SettingsView';
 import { startEngine, stopEngine } from './engine/engine';
-import { initTelegram } from './engine/telegram';
+import { initBotSync, stopBotSync } from './engine/bot';
 import { initPortfolioMonitor } from './portfolio/monitor';
 import { useApp } from './state/store';
 import { useIsNarrow } from './useResponsive';
@@ -18,12 +18,15 @@ export default function App() {
 
   useEffect(() => {
     startEngine();
-    void initTelegram(); // resolve the bot username for the deep link
+    initBotSync(); // share alerts with the bot server, once linked
     initPortfolioMonitor(); // resume position tracking if a wallet was saved
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       void Notification.requestPermission();
     }
-    return stopEngine;
+    return () => {
+      stopEngine();
+      stopBotSync();
+    };
   }, []);
 
   return (
@@ -40,7 +43,7 @@ export default function App() {
       <Rail horizontal={narrow} />
       <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {/* Inside App, so a view that throws is contained here: App stays
-            mounted and its effect keeps the quote engine and alerts running. */}
+            mounted and its effect keeps the quote engine and bot sync running. */}
         <ErrorBoundary scope={`view:${view}`} resetKey={view}>
           {view === 'quotes' && <QuotesView />}
           {view === 'alerts' && <AlertsView />}

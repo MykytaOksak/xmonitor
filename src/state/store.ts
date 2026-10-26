@@ -4,12 +4,13 @@ import type { NetworkId } from '../config/networks';
 import { PAIRS, pairById, setCustomPairs, type CustomPairSpec } from '../config/pairs';
 import { fmtPrice } from '../engine/format';
 import type {
+  BotNotification,
+  BotStatus,
   NetQuote,
   PairAlert,
   PairSnapshot,
   SaveState,
   SyncState,
-  TgState,
 } from '../engine/types';
 
 export type View = 'quotes' | 'alerts' | 'portfolio' | 'settings';
@@ -18,8 +19,7 @@ export type SortDir = 'asc' | 'desc';
 export type QuotesMode = 'single' | 'scroll' | 'parallel';
 export type PaneCount = 2 | 3 | 4;
 
-const genProfileId = () =>
-  'usr_' + Array.from(crypto.getRandomValues(new Uint8Array(4)), (b) => b.toString(16).padStart(2, '0')).join('');
+export type BotState = 'off' | 'connecting' | 'online' | 'offline' | 'unauthorized';
 
 export interface AppState {
   // navigation / UI
@@ -61,12 +61,12 @@ export interface AppState {
   lastSync: string;
   lastSyncAt: number;
 
-  // alerts / telegram
+  // alerts / bot server
   saveState: SaveState;
-  tgState: TgState;
-  tgChatId: string | null;
-  tgBot: string | null;
-  profileId: string;
+  botToken: string | null; // the server's ADMIN_TOKEN, pasted by the owner
+  botState: BotState;
+  botStatus: BotStatus | null;
+  botHistory: BotNotification[];
 
   // actions
   set: (p: Partial<AppState>) => void;
@@ -92,6 +92,7 @@ export interface AppState {
   updateDraft: (pairId: string, side: 'buy' | 'sell', patch: Partial<PairAlert['buy']>) => void;
   toggleAlertNet: (pairId: string, side: 'buy' | 'sell', netName: string) => void;
   saveAlerts: () => void;
+  setAlertPaused: (pairId: string, paused: boolean) => void;
 }
 
 /** Effective sync state shown in the header (simulation wins). */
@@ -165,10 +166,10 @@ export const useApp = create<AppState>()(
       lastSyncAt: 0,
 
       saveState: 'idle',
-      tgState: 'disconnected',
-      tgChatId: null,
-      tgBot: null,
-      profileId: genProfileId(),
+      botToken: null,
+      botState: 'off',
+      botStatus: null,
+      botHistory: [],
 
       set: (p) => set(p),
       setView: (v) => set({ view: v }),
@@ -302,23 +303,31 @@ export const useApp = create<AppState>()(
           };
         }),
       saveAlerts: () => {
-        set({ saveState: 'saving' });
         clearTimeout(saveTimer);
-        // Persistence itself is synchronous (localStorage); the short delay
-        // keeps the Saving… → ✓ saved feedback from the design readable.
-        saveTimer = setTimeout(() => {
-          const cur = get();
-          const draft = cur.drafts[cur.alertSel];
-          if (draft) {
-            set({
-              savedAlerts: { ...cur.savedAlerts, [cur.alertSel]: draft },
-              saveState: 'saved',
-            });
-          } else {
-            set({ saveState: 'saved' });
-          }
-        }, 500);
+        const cur = get();
+        const draft = cur.drafts[cur.alertSel];
+        const drafts = { ...cur.drafts };
+        // Committed: the editor reads the saved copy again, so a change made
+        // from the bot later shows up instead of a stale draft.
+        delete drafts[cur.alertSel];
+        set({
+          ...(draft ? { savedAlerts: { ...cur.savedAlerts, [cur.alertSel]: draft } } : {}),
+          drafts,
+          saveState: 'saving',
+        });
+        // With a bot linked, the sync (engine/bot.ts) reports saved or failed
+        // once the server has it. Without one, it is only kept locally; the
+        // short delay keeps the Saving… → ✓ saved feedback readable.
+        const unchanged = !draft || JSON.stringify(draft) === JSON.stringify(cur.savedAlerts[cur.alertSel]);
+        if (!cur.botToken || unchanged) saveTimer = setTimeout(() => set({ saveState: 'saved' }), 500);
       },
+      setAlertPaused: (pairId, paused) =>
+        set((s) => {
+          const saved = s.savedAlerts[pairId];
+          if (!saved) return {};
+          const drafts = s.drafts[pairId] ? { ...s.drafts, [pairId]: { ...s.drafts[pairId], paused } } : s.drafts;
+          return { savedAlerts: { ...s.savedAlerts, [pairId]: { ...saved, paused } }, drafts };
+        }),
     }),
     {
       name: 'xmonitor',
@@ -346,10 +355,7 @@ export const useApp = create<AppState>()(
         savedAlerts: s.savedAlerts,
         threshold: s.threshold,
         refresh: s.refresh,
-        tgChatId: s.tgChatId,
-        tgBot: s.tgBot,
-        tgState: s.tgState === 'connected' ? ('connected' as TgState) : ('disconnected' as TgState),
-        profileId: s.profileId,
+        botToken: s.botToken,
       }),
     },
   ),
