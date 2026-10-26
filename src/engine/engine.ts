@@ -24,30 +24,48 @@ interface ResolvedToken {
 }
 
 /**
- * Ethereum apxUSD/USDC sell, i.e. the USDC realised per apxUSD. Cached so a
- * cycle in which Ethereum happens to be mid-refresh does not drop the rows that
- * depend on it; 0 until it has quoted once, which callers treat as "cannot
- * price yet".
+ * Ethereum apxUSD/USDC quote, both sides, in USDC per apxUSD: `sell` is what
+ * selling apxUSD realises, `buy` is what buying it back costs. Cached as a pair
+ * from the same row so the two always belong to one quote, and so a cycle in
+ * which Ethereum is mid-refresh doesn't drop the rows that depend on it.
+ *
+ * The cache expires: when Ethereum keeps failing (as it does when apxUSD
+ * liquidity thins out) the last good quote would otherwise be reused for
+ * hours. Zero means "cannot price yet", which callers turn into ERR.
  */
-let _apxUsdcSell = 0;
-function apxUsdcRate(): number {
+const APX_RATE_MAX_AGE_MS = 10 * 60_000; // a couple of missed scan cycles
+const _apxUsdc = { buy: 0, sell: 0, at: 0 };
+function apxUsdcRates(): { buy: number; sell: number } {
   const row = useApp.getState().snapshots['apxUSD-USDC']?.rows.ethereum;
-  const v = row?.sell;
-  if (row?.status === 'live' && v != null && isFinite(v) && v > 0) _apxUsdcSell = v;
-  return _apxUsdcSell;
+  const ok = (v: number | null | undefined): v is number => v != null && isFinite(v) && v > 0;
+  if (row?.status === 'live' && ok(row.buy) && ok(row.sell)) {
+    _apxUsdc.buy = row.buy;
+    _apxUsdc.sell = row.sell;
+    _apxUsdc.at = row.at;
+  }
+  return Date.now() - _apxUsdc.at <= APX_RATE_MAX_AGE_MS ? _apxUsdc : { buy: 0, sell: 0 };
 }
 
 function resolveToken(symbol: string, netId: NetworkId, pair: PairConfig): ResolvedToken | null {
   // Hydration lists no apxUSD, so the apyUSD/apxUSD pair trades its USDC market
-  // instead and sizes the trade at the USDC value of the apxUSD notional, taken
-  // from the Ethereum apxUSD/USDC sell — what the apxUSD would actually realise.
-  // Without that rate the size would be off by ~1.4%, so the row errors rather
-  // than guessing 1:1.
+  // and converts at the rate each direction would really pay on Ethereum:
+  //  - funding a buy means SELLING apxUSD for USDC -> Ethereum sell rate;
+  //  - proceeds of a sell come back as USDC and must BUY apxUSD -> Ethereum buy
+  //    rate. One rate for both would overstate Hydration's sell price by the
+  //    whole apxUSD/USDC spread (~0.65% when measured), surfacing opportunities
+  //    that vanish once the buy-back is paid for.
+  // Without the rates the size would be off by ~1.4%, so the row errors rather
+  // than guessing 1:1. Both pairs default to the same notional, so the
+  // conversion is priced at the trade's own size.
   if (netId === 'hydration' && symbol === 'apxUSD') {
     const dep = tokenOn('USDC', 'hydration');
-    const rate = apxUsdcRate(); // USDC per apxUSD
-    if (!dep || rate <= 0) return null;
-    return { dep, toActual: (n) => n * rate, toNominal: (a) => a / rate };
+    const { buy, sell } = apxUsdcRates();
+    if (!dep || buy <= 0 || sell <= 0) return null;
+    return {
+      dep,
+      toActual: (n) => n * sell, // apxUSD sold -> USDC to spend on Hydration
+      toNominal: (a) => a / buy, // USDC received -> apxUSD bought back
+    };
   }
   // A custom pair carries its own deployments, so take them literally — no
   // registry lookup and none of the substitutions below. The only conversion
