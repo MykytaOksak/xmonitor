@@ -139,6 +139,8 @@ async function requestJson(
     await waitTurn(bucket);
     const r = await fetch(url, init);
     if (r.ok) return r.json();
+    // An unread body keeps the whole request alive in Chrome (see net-timeout.ts).
+    void r.body?.cancel().catch(() => {});
 
     if (r.status === 429 && attempt < maxRetries) {
       const pause =
