@@ -2,23 +2,23 @@
 // Must be the first import in server/main.ts.
 //
 // - fetch('/px/<svc>/…'): the engine addresses every upstream through the
-//   same-origin /px proxy. Here those paths are resolved against the very
-//   table Vercel uses (vercel.json), and the keyed ones (Enso, Etherscan) go
-//   through the shared handler that adds their secret — so server and site can
-//   never disagree about where a venue lives.
+//   same-origin /px proxy. Here those paths are resolved against the same
+//   table the site's proxy uses (upstreams.json), and the keyed ones (Enso,
+//   Etherscan) go through the handler that adds their secret — so the engine
+//   and the site can never disagree about where a venue lives.
 // - localStorage: the zustand store persists through it. An in-memory stand-in
 //   is enough; the server's durable state lives in SQLite (server/db.ts).
-import vercel from '../vercel.json';
-import { KEYED_SERVICES, handleKeyed } from '../api/_keyed';
+import upstreams from '../upstreams.json';
+import { KEYED_SERVICES, handleKeyed } from './keyed';
 
 const FETCH_TIMEOUT_MS = 30_000;
 const UNREAD_BODY_MS = 30_000;
 
-const upstream = new Map(
-  vercel.rewrites
-    .filter((r) => !r.source.includes(':path*') && r.destination.startsWith('http'))
-    .map((r) => [r.source.replace(/^\/px\//, ''), r.destination]),
-);
+const upstream = new Map<string, string>(Object.entries(upstreams));
+
+/** Whether /px/<svc> is a route this server knows. */
+export const isPxService = (svc: string): boolean =>
+  upstream.has(svc) || (KEYED_SERVICES as readonly string[]).includes(svc);
 
 const original = globalThis.fetch.bind(globalThis);
 

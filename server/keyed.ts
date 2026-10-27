@@ -1,14 +1,11 @@
-// Server-side half of the upstreams that need a secret.
+// The upstreams that need a secret, behind /px/enso and /px/etherscan.
 //
 // Anything prefixed VITE_ is compiled into the public bundle, so the Enso and
-// Etherscan keys live only here: the browser calls /px/enso and /px/etherscan
-// without them, and this module adds the secret before forwarding. It runs as
-// a Vercel Edge Function in production (api/px.ts), as a Vite middleware in dev
-// (vite.config.ts) and inside the bot server (server/polyfill.ts), so every
-// environment enforces exactly the same rules. Telegram is not proxied at all:
-// only the bot server holds that token.
-//
-// Leading underscore keeps Vercel from exposing this file as a route itself.
+// Etherscan keys live only on the server: the browser calls the /px routes
+// without them, and this module adds the secret before forwarding. It runs
+// inside the bot server (which also serves the site) and as a Vite middleware
+// in dev, so both enforce exactly the same rules. Telegram is not proxied at
+// all: only the bot server holds that token.
 
 export interface KeyedEnv {
   ENSO_KEY?: string;

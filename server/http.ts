@@ -1,5 +1,6 @@
-// The API the website uses to share settings with the bot. Reached through
-// the site's /px/bot rewrite (vercel.json), so the browser never needs CORS.
+// The one HTTP server: the website and its /px proxies (web.ts), plus the API
+// the website uses to share settings with the bot. The site reaches the API
+// as /px/bot/api/…, the same path it uses in dev, where Vite proxies it here.
 //
 // Everything under /api requires `Authorization: Bearer <ADMIN_TOKEN>`: the
 // site is public, and this API changes what alerts fire and sends messages.
@@ -9,6 +10,7 @@ import { validOps } from '../src/engine/settings';
 import { getStatus, notify } from './bot';
 import { recentNotifications } from './db';
 import { getSettings, getVersion, patchSettings } from './settings';
+import { proxyPx, serveStatic } from './web';
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN ?? '';
 const MAX_BODY = 1 << 20;
@@ -40,10 +42,12 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
 
 async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = new URL(req.url ?? '/', 'http://bot.local');
-  const path = url.pathname.replace(/\/+$/, '') || '/';
+  let path = url.pathname.replace(/\/+$/, '') || '/';
 
+  if (path.startsWith('/px/bot/') || path === '/px/bot') path = path.slice('/px/bot'.length) || '/';
+  else if (path.startsWith('/px/')) return proxyPx(req, res, url);
   if (path === '/health') return reply(res, 200, { ok: true });
-  if (!path.startsWith('/api/')) return reply(res, 404, { error: 'not found' });
+  if (!path.startsWith('/api/')) return serveStatic(req, res, url.pathname);
   if (!authorized(req)) return reply(res, 401, { error: 'unauthorized' });
 
   if (req.method === 'GET' && path === '/api/state') {

@@ -1,0 +1,23 @@
+{
+  "canoe": "https://canoe.v2.icarus.tools",
+  "oku": "https://accounts.v2.icarus.tools",
+  "kyber": "https://aggregator-api.kyberswap.com",
+  "openocean": "https://open-api.openocean.finance",
+  "eisen": "https://api.hetz-01.eisenfinance.com",
+  "rhea": "https://smartx.rhea.finance",
+  "jup-ultra": "https://ultra-api.jup.ag",
+  "jup-lite": "https://lite-api.jup.ag",
+  "avax-rpc": "https://api.avax.network/ext/bc/C/rpc",
+  "fluent": "https://rpc.fluent.xyz",
+  "binance": "https://api.binance.com",
+  "bybit": "https://api.bybit.com",
+  "xlayer": "https://rpc.xlayer.tech",
+  "ink": "https://rpc-gel.inkonchain.com",
+  "okx": "https://www.okx.com",
+  "plasma": "https://rpc.plasma.to",
+  "base": "https://mainnet.base.org",
+  "monad": "https://rpc.monad.xyz",
+  "routescan": "https://api.routescan.io",
+  "llama": "https://coins.llama.fi",
+  "bot": "https://xarb-bot.fly.dev"
+}

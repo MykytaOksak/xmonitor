@@ -1,7 +1,11 @@
-# XARB bot server
+# XARB server
 
-Runs the website's quote engine around the clock, checks price alerts, and
-delivers them through your Telegram bot. The bot also lets you manage alerts:
+Hosts the website (the Vite build plus the `/px` proxies its quote engine
+calls), and runs that same engine around the clock to check price alerts and
+deliver them through your Telegram bot. Site, proxies and bot share one host:
+https://xarb-bot.fly.dev. The old Vercel address redirects there.
+
+The bot also lets you manage alerts:
 
 | Command | What it does |
 |---|---|
@@ -38,18 +42,20 @@ One-time setup, from the project root:
 brew install flyctl
 fly auth login
 fly apps create xarb-bot            # if the name is taken, pick another and change
-                                    # `app` in fly.toml and the /px/bot URLs in vercel.json
+                                    # `app` in fly.toml, the bot URL in upstreams.json
+                                    # and the redirect in vercel.json
 fly volumes create xarb_data --region fra --size 1 --yes
 ```
 
 Secrets. Keep a copy of `ADMIN_TOKEN`: the website asks for it.
 
 ```bash
-fly secrets set TG_BOT_TOKEN=<from @BotFather> ADMIN_TOKEN=$(openssl rand -hex 32) ENSO_KEY=<enso key>
+fly secrets set TG_BOT_TOKEN=<from @BotFather> ADMIN_TOKEN=$(openssl rand -hex 32) ENSO_KEY=<enso key> ETHERSCAN_KEY=<etherscan key>
 fly secrets list                    # values stay hidden; to read ADMIN_TOKEN back: fly ssh console -C 'printenv ADMIN_TOKEN'
 ```
 
-Deploy (and after every server change):
+Deploy (and after every change to the site or the server — pushing to GitHub
+does not deploy it):
 
 ```bash
 fly deploy --ha=false               # exactly one machine

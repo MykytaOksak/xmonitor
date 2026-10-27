@@ -5,15 +5,15 @@ import react from '@vitejs/plugin-react';
 // Top-level await comes from the esnext target below rather than a plugin —
 // vite-plugin-top-level-await crashes on the swc version in this tree.
 import wasm from 'vite-plugin-wasm';
-// vercel.json is the single source of truth for the /px/* upstreams: Vercel
-// rewrites them in production, and the dev server mirrors the same table here,
-// so the two environments cannot drift apart.
-import vercel from './vercel.json';
-import { KEYED_SERVICES, handleKeyed, type KeyedEnv } from './api/_keyed';
+// upstreams.json is the single source of truth for the /px/* upstreams: the
+// bot server proxies them in production (server/web.ts), and the dev server
+// mirrors the same table here, so the two environments cannot drift apart.
+import upstreams from './upstreams.json';
+import { KEYED_SERVICES, handleKeyed, type KeyedEnv } from './server/keyed';
 
 // The /px/* proxies exist because most quote APIs don't send
-// Access-Control-Allow-Origin. Vercel provides them in production; this is the
-// dev-server equivalent.
+// Access-Control-Allow-Origin. The bot server provides them in production;
+// this is the dev-server equivalent.
 //
 // The timeouts + error handler below stop the long-running dev server from
 // leaking sockets/file descriptors across the portfolio monitor's thousands of
@@ -46,18 +46,15 @@ const proxy = (target: string): ProxyOptions => ({
   },
 });
 
-// Plain upstreams only: the keyed ones rewrite to the /api/px function, which
-// the middleware below stands in for.
+// Plain upstreams only: the keyed ones are handled by the middleware below.
 const devProxies: Record<string, ProxyOptions> = Object.fromEntries(
-  vercel.rewrites
-    .filter((r) => !r.source.includes(':path*') && r.destination.startsWith('http'))
-    .map((r) => [r.source, proxy(r.destination)]),
+  Object.entries(upstreams).map(([svc, url]) => [`/px/${svc}`, proxy(url)]),
 );
 
 const KEYED_PATH = new RegExp(`^/px/(${KEYED_SERVICES.join('|')})(?:/(.*))?$`);
 
 /**
- * Runs the same handler as the production Edge Function (api/_keyed.ts), so
+ * Runs the same handler as the production server (server/keyed.ts), so
  * secrets are attached identically in dev. Keys
  * come from .env.local under their server-side names.
  */
