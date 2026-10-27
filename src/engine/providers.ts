@@ -129,6 +129,36 @@ async function waitTurn(bucket: RateBucket): Promise<void> {
   release();
 }
 
+// ——— dead-venue breaker ———
+// A venue that is down answers every quote with a 5xx or not at all (Canoe and
+// Oku returned HTTP 525 to everything for days), and each of those attempts
+// costs a proxy request and a rate-limit slot before the route falls back.
+// After a few failures in a row the venue is skipped outright for a while —
+// quote() moves straight on to the next route — then a single success
+// re-opens it. Request-specific failures (400/404: no route, bad pair) don't
+// count.
+const BREAKER_TRIP = 3;
+const BREAKER_PAUSE_MS = 10 * 60_000;
+const breaker: Partial<Record<RateBucket, { fails: number; until: number; why: string }>> = {};
+
+function checkBreaker(bucket: RateBucket): void {
+  const b = breaker[bucket];
+  if (b && Date.now() < b.until) {
+    const at = new Date(b.until).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    throw new Error(`${bucket}: down (${b.why}), retrying at ${at}`);
+  }
+}
+
+function venueFailed(bucket: RateBucket, why: string): void {
+  const b = (breaker[bucket] ??= { fails: 0, until: 0, why });
+  b.fails++;
+  b.why = why;
+  // Once tripped, each failed retry pauses it again straight away.
+  if (b.fails >= BREAKER_TRIP) b.until = Date.now() + BREAKER_PAUSE_MS;
+}
+
+const venueOk = (bucket: RateBucket): void => void delete breaker[bucket];
+
 async function requestJson(
   bucket: RateBucket,
   url: string,
@@ -136,11 +166,24 @@ async function requestJson(
 ): Promise<any> {
   const { maxRetries, minDelayMs } = RATE_LIMITS[bucket];
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    checkBreaker(bucket);
     await waitTurn(bucket);
-    const r = await fetch(url, init);
-    if (r.ok) return r.json();
+    let r: Response;
+    try {
+      r = await fetch(url, init);
+    } catch (e) {
+      venueFailed(bucket, 'unreachable');
+      throw e;
+    }
+    if (r.ok) {
+      venueOk(bucket);
+      return r.json();
+    }
     // An unread body keeps the whole request alive in Chrome (see net-timeout.ts).
     void r.body?.cancel().catch(() => {});
+    // 5xx: the venue is down. 401/403: it refuses us (bad key, blocked
+    // address) — every request would fail the same way.
+    if (r.status >= 500 || r.status === 401 || r.status === 403) venueFailed(bucket, `HTTP ${r.status}`);
 
     if (r.status === 429 && attempt < maxRetries) {
       const pause =
