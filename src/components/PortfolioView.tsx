@@ -343,6 +343,11 @@ function PositionCard({ p, showOwner }: { p: Position; showOwner: boolean }) {
         >
           {p.inRange ? 'IN RANGE' : 'OUT OF RANGE'}
         </span>
+        {p.staked && (
+          <span style={{ ...mono(8.5, 600), letterSpacing: '.06em', color: C.secondary, padding: '2px 0' }}>
+            STAKED
+          </span>
+        )}
         {showOwner && (
           <span className="tnum" style={{ ...mono(8.5, 500), color: C.label }} title={p.owner}>
             {short(p.owner)}

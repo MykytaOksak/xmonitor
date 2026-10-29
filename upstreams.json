@@ -15,6 +15,7 @@
   "ink": "https://rpc-gel.inkonchain.com",
   "okx": "https://www.okx.com",
   "plasma": "https://rpc.plasma.to",
+  "eth": "https://ethereum-rpc.publicnode.com",
   "base": "https://mainnet.base.org",
   "monad": "https://rpc.monad.xyz",
   "routescan": "https://api.routescan.io",

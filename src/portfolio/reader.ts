@@ -28,6 +28,8 @@ export interface Position {
   tickLower: number;
   tickUpper: number;
   inRange: boolean;
+  /** Held by a gauge on the owner's behalf (Slipstream staking). */
+  staked?: boolean;
   usd: number;
 }
 
@@ -116,11 +118,63 @@ async function enumeratePositions(chain: string, wallet: string) {
 
 // selectors
 const SEL_POSITIONS = '0x99fbab88'; // positions(uint256)
+const SEL_ALL_POOLS_LENGTH = '0xefde4e64'; // allPoolsLength()
+const SEL_ALL_POOLS = '0x41d1de97'; // allPools(uint256)
+const SEL_GAUGE = '0xa6f19c84'; // gauge()
+const SEL_STAKED_VALUES = '0x4b937763'; // stakedValues(address)
+const SEL_FEE = '0xddca3f43'; // fee()
 const SEL_FACTORY = '0xc45a0155'; // factory()
 const SEL_GETPOOL = '0x1698ee82'; // getPool(address,address,uint24)
 const SEL_SLOT0 = '0x3850c7bd'; // slot0()
 const SEL_DECIMALS = '0x313ce567';
 const SEL_SYMBOL = '0x95d89b41';
+
+// Gauge list per Slipstream factory. It only changes when pools or gauges are
+// added, so it's re-read hourly rather than on every 3-minute refresh.
+const GAUGES_TTL_MS = 3_600_000;
+const gaugeCache: Record<string, { at: number; gauges: string[] }> = {};
+const isZeroAddr = (a: string) => /^0x0{40}$/.test(a);
+
+async function factoryGauges(rpc: string, factory: string): Promise<string[]> {
+  const hit = gaugeCache[factory];
+  if (hit && Date.now() - hit.at < GAUGES_TTL_MS) return hit.gauges;
+  const [len] = await batchCall(rpc, [{ to: factory, data: SEL_ALL_POOLS_LENGTH }]);
+  if (!len) return hit?.gauges ?? [];
+  const n = Number(BigInt(len));
+  const poolRes = await batchCall(
+    rpc,
+    Array.from({ length: n }, (_, i) => ({ to: factory, data: SEL_ALL_POOLS + pad(i) })),
+  );
+  const pools = poolRes.filter((r): r is string => !!r && r.length >= 66).map((r) => addr(r.slice(2)));
+  const gaugeRes = await batchCall(rpc, pools.map((pool) => ({ to: pool, data: SEL_GAUGE })));
+  const gauges = gaugeRes
+    .filter((r): r is string => !!r && r.length >= 66)
+    .map((r) => addr(r.slice(2)).toLowerCase())
+    .filter((g) => !isZeroAddr(g));
+  // Only cache a complete read, so a flaky call can't hide a gauge for an hour.
+  if (pools.length === n && gaugeRes.every(Boolean)) gaugeCache[factory] = { at: Date.now(), gauges };
+  return gauges;
+}
+
+/** Position NFTs the wallet has staked in gauges of the chain's Slipstream factories. */
+async function enumerateStaked(chain: string, wallet: string) {
+  const c = PF_CHAINS[chain];
+  const found: { manager: string; tokenId: string }[] = [];
+  for (const p of PROTOCOLS.filter((p) => p.chain === chain && p.gaugeFactory)) {
+    const gauges = await factoryGauges(c.rpc, p.gaugeFactory!);
+    const res = await batchCall(c.rpc, gauges.map((g) => ({ to: g, data: SEL_STAKED_VALUES + pad(wallet) })));
+    for (const r of res) {
+      if (!r || r.length < 130) continue;
+      // uint256[]: offset(32) len(32) ids…
+      const b = r.slice(2);
+      const len = Math.min(parseInt(b.slice(64, 128), 16), (b.length - 128) / 64);
+      for (let k = 0; k < len; k++) {
+        found.push({ manager: p.manager, tokenId: BigInt('0x' + b.slice(128 + k * 64, 192 + k * 64)).toString() });
+      }
+    }
+  }
+  return found;
+}
 
 const decodeString = (hex?: string | null): string => {
   if (!hex || hex === '0x') return '?';
@@ -163,7 +217,9 @@ async function fetchPricesLlama(chain: string, addresses: string[]): Promise<Rec
 
 async function readChain(chain: string, wallet: string): Promise<Position[]> {
   const c = PF_CHAINS[chain];
-  const matches = await enumeratePositions(chain, wallet);
+  const [held, staked] = await Promise.all([enumeratePositions(chain, wallet), enumerateStaked(chain, wallet)]);
+  const stakedIds = new Set(staked.map((m) => `${m.manager}:${m.tokenId}`));
+  const matches = [...held, ...staked];
   if (matches.length === 0) return [];
 
   // 1) positions(tokenId) for every matched NFT
@@ -229,13 +285,23 @@ async function readChain(chain: string, wallet: string): Promise<Position[]> {
     if (poolRes[i]) poolByKey[poolKey(p)] = addr(poolRes[i]!.slice(2));
   });
 
-  // 4) slot0() per unique pool
+  // 4) slot0() + fee() per unique pool. Slipstream positions carry tickSpacing
+  // where v3 has the fee, so the pool's own fee() is what gets displayed.
   const pools = [...new Set(Object.values(poolByKey))];
-  const slotRes = await batchCall(c.rpc, pools.map((pool) => ({ to: pool, data: SEL_SLOT0 })));
+  const slotRes = await batchCall(
+    c.rpc,
+    pools.flatMap((pool) => [
+      { to: pool, data: SEL_SLOT0 },
+      { to: pool, data: SEL_FEE },
+    ]),
+  );
   const sqrtByPool: Record<string, bigint> = {};
+  const feeByPool: Record<string, number> = {};
   pools.forEach((pool, i) => {
-    const r = slotRes[i];
+    const r = slotRes[i * 2];
     if (r && r !== '0x') sqrtByPool[pool] = BigInt('0x' + r.slice(2, 66));
+    const f = slotRes[i * 2 + 1];
+    if (f && f.length >= 66) feeByPool[pool] = parseInt(f.slice(-64), 16);
   });
 
   // 5) decimals + symbol for every token
@@ -286,10 +352,11 @@ async function readChain(chain: string, wallet: string): Promise<Position[]> {
       tokenId: p.tokenId,
       token0: t0,
       token1: t1,
-      feeBps: p.fee,
+      feeBps: feeByPool[pool] ?? p.fee,
       tickLower: p.tickLower,
       tickUpper: p.tickUpper,
       inRange,
+      staked: stakedIds.has(`${p.manager}:${p.tokenId}`),
       usd: t0.usd + t1.usd,
     });
   }

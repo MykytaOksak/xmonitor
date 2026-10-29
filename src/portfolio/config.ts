@@ -31,6 +31,14 @@ export const PF_CHAINS: Record<string, PortfolioChain> = {
     rpc: '/px/base',
     llama: 'base',
   },
+  ethereum: {
+    id: 'ethereum',
+    name: 'Ethereum',
+    chainId: 1,
+    routescanId: 1,
+    rpc: '/px/eth',
+    llama: 'ethereum',
+  },
   monad: {
     id: 'monad',
     name: 'Monad',
@@ -53,6 +61,12 @@ export interface ProtocolDef {
   manager: string;
   /** v4 needs its StateView/PoolManager to read pool state. */
   stateView?: string;
+  /**
+   * Slipstream-family CL factory, lowercased. Staked positions sit in their
+   * pool's gauge rather than the wallet, so every pool's gauge is asked for the
+   * wallet's staked token ids. Only for factories with a few hundred pools.
+   */
+  gaugeFactory?: string;
 }
 
 export const PROTOCOLS: ProtocolDef[] = [
@@ -78,6 +92,15 @@ export const PROTOCOLS: ProtocolDef[] = [
     kind: 'univ3',
     // PancakeSwap V3 NonfungiblePositionManager (Base).
     manager: '0x46a15b0b27311cedf172ab29e4f4766fbe7f4364',
+  },
+  {
+    key: 'aero-ethereum',
+    label: 'Aero',
+    chain: 'ethereum',
+    kind: 'univ3',
+    // Aero (Slipstream) NonfungiblePositionManager + CLFactory (Ethereum).
+    manager: '0x4857db576ee0e45f10525ec59527bfd10beec60b',
+    gaugeFactory: '0xf4fd2e6c5b60c5b365cd1b96dd6245e6d60414c2',
   },
   // Uniswap v4 on Plasma — manager/stateView filled once confirmed deployed.
   // { key: 'uniswap-v4-plasma', label: 'Uniswap v4', chain: 'plasma', kind: 'univ4', manager: '0x…', stateView: '0x…' },
