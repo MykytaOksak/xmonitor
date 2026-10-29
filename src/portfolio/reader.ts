@@ -215,9 +215,12 @@ async function fetchPricesLlama(chain: string, addresses: string[]): Promise<Rec
   return out;
 }
 
-async function readChain(chain: string, wallet: string): Promise<Position[]> {
+async function readChain(chain: string, wallet: string, withStaked: boolean): Promise<Position[]> {
   const c = PF_CHAINS[chain];
-  const [held, staked] = await Promise.all([enumeratePositions(chain, wallet), enumerateStaked(chain, wallet)]);
+  const [held, staked] = await Promise.all([
+    enumeratePositions(chain, wallet),
+    withStaked ? enumerateStaked(chain, wallet) : [],
+  ]);
   const stakedIds = new Set(staked.map((m) => `${m.manager}:${m.tokenId}`));
   const matches = [...held, ...staked];
   if (matches.length === 0) return [];
@@ -383,22 +386,36 @@ export function parseAddresses(input: string): { evm: string[]; movement: string
   return { evm, movement, monadV4 };
 }
 
+export interface ScanOptions {
+  /** Chain ids (PF_SCAN_CHAINS) to leave out of the scan. */
+  skipChains?: string[];
+  /** Also look for positions staked in gauges (slow: one call per gauge). */
+  staked?: boolean;
+}
+
 /**
  * Fetch all tracked DeFi positions for one or more wallets. EVM addresses are
  * read on-chain across the configured chains (v3) plus Uniswap v4 on Monad
  * (enumerated via Etherscan when a key is set); Movement addresses go to Yuzu;
  * bare Monad v4 position ids are read directly.
  */
-export async function fetchWalletPositions(input: string): Promise<Position[]> {
+export async function fetchWalletPositions(input: string, opts: ScanOptions = {}): Promise<Position[]> {
   const { evm, movement, monadV4 } = parseAddresses(input);
-  const chains = [...new Set(PROTOCOLS.map((p) => p.chain))];
+  const skip = new Set(opts.skipChains ?? []);
+  const on = (chain: string) => !skip.has(chain);
+  const withStaked = opts.staked ?? true;
+  const chains = [...new Set(PROTOCOLS.map((p) => p.chain))].filter(on);
   const tasks: Promise<Position[]>[] = [];
   for (const wallet of evm) {
-    for (const chain of chains) tasks.push(readChain(chain, wallet).catch(() => [] as Position[]));
-    tasks.push(fetchUniv4Positions('monad', wallet).catch(() => [] as Position[]));
+    for (const chain of chains) tasks.push(readChain(chain, wallet, withStaked).catch(() => [] as Position[]));
+    if (on('monad')) tasks.push(fetchUniv4Positions('monad', wallet).catch(() => [] as Position[]));
   }
-  for (const wallet of movement) tasks.push(fetchYuzuPositions(wallet).catch(() => [] as Position[]));
-  if (monadV4.length) tasks.push(fetchUniv4PositionsByIds('monad', monadV4).catch(() => [] as Position[]));
+  if (on('movement')) {
+    for (const wallet of movement) tasks.push(fetchYuzuPositions(wallet).catch(() => [] as Position[]));
+  }
+  if (monadV4.length && on('monad')) {
+    tasks.push(fetchUniv4PositionsByIds('monad', monadV4).catch(() => [] as Position[]));
+  }
   const results = await Promise.all(tasks);
   return results.flat().sort((a, b) => b.usd - a.usd);
 }

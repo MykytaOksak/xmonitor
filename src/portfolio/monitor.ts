@@ -1,5 +1,5 @@
 // App-wide portfolio monitor. Runs independently of the Portfolio view (which
-// unmounts on tab switch) so positions keep refreshing every 3 minutes and
+// unmounts on tab switch) so positions keep refreshing on their interval and
 // range-change alerts fire even when the user is on another tab. Tracks a list
 // of wallets (EVM and/or Movement). State is exposed via a tiny
 // subscribe/getSnapshot store for useSyncExternalStore.
@@ -8,12 +8,26 @@ import { sendBotNotification } from '../engine/bot';
 import { useApp } from '../state/store';
 import { setBackgroundInterval } from '../engine/timers';
 
-const REFRESH_MS = 180_000; // 3 minutes
 const WALLETS_KEY = 'xmonitor.pfwallets'; // JSON string[] of tracked wallets
 const LEGACY_WALLET_KEY = 'xmonitor.pfwallet'; // pre-multi-wallet single string
 const ALERTS_KEY = 'xmonitor.pfalerts';
 const RANGE_KEY = 'xmonitor.pfrange'; // baseline inRange per position id
 const EVENTS_KEY = 'xmonitor.pfevents';
+const SETTINGS_KEY = 'xmonitor.pfsettings';
+
+export interface ScanSettings {
+  /** Chains left out of the scan. Stored as the off-list so new chains start on. */
+  disabledChains: string[];
+  /** Look for positions staked in gauges (Aero on Ethereum). */
+  staked: boolean;
+  /** Positions worth less than this are hidden and don't raise range alerts. */
+  minUsd: number;
+  /** Auto-refresh interval in minutes. */
+  refreshMin: number;
+}
+
+export const REFRESH_CHOICES = [1, 3, 5, 10, 15];
+const DEFAULT_SETTINGS: ScanSettings = { disabledChains: [], staked: true, minUsd: 0, refreshMin: 3 };
 
 export interface RangeEvent {
   id: string;
@@ -29,6 +43,7 @@ export interface MonitorState {
   status: 'idle' | 'scanning' | 'refreshing' | 'error';
   error: string | null;
   alertsOn: boolean;
+  settings: ScanSettings;
   events: RangeEvent[];
   lastRefreshAt: number;
   nextRefreshAt: number;
@@ -72,6 +87,7 @@ let state: MonitorState = {
   status: 'idle',
   error: null,
   alertsOn: readLS<boolean>(ALERTS_KEY, false),
+  settings: { ...DEFAULT_SETTINGS, ...readLS<Partial<ScanSettings>>(SETTINGS_KEY, {}) },
   events: readLS<RangeEvent[]>(EVENTS_KEY, []),
   lastRefreshAt: 0,
   nextRefreshAt: 0,
@@ -89,6 +105,8 @@ export const subscribe = (l: () => void) => {
   return () => listeners.delete(l);
 };
 export const getSnapshot = (): MonitorState => state;
+
+const refreshMs = () => state.settings.refreshMin * 60_000;
 
 let cancelTimer: (() => void) | undefined;
 let scanning = false;
@@ -146,7 +164,8 @@ async function scan(kind: 'scanning' | 'refreshing') {
   scanning = true;
   setState({ status: kind, error: null });
   try {
-    const positions = await fetchWalletPositions(state.wallets.join(' '));
+    const { disabledChains, staked, minUsd } = state.settings;
+    const positions = await fetchWalletPositions(state.wallets.join(' '), { skipChains: disabledChains, staked });
 
     // Detect range flips against the persisted baseline (only alert when enabled).
     let events = state.events;
@@ -154,7 +173,7 @@ async function scan(kind: 'scanning' | 'refreshing') {
       const flips: RangeEvent[] = [];
       for (const p of positions) {
         const prev = prevRange[p.id];
-        if (prev !== undefined && prev !== p.inRange) {
+        if (prev !== undefined && prev !== p.inRange && p.usd >= minUsd) {
           flips.push({
             id: p.id,
             label: `${p.token0.symbol}/${p.token1.symbol} · ${p.protocol} #${p.tokenId}`,
@@ -180,7 +199,7 @@ async function scan(kind: 'scanning' | 'refreshing') {
       error: null,
       events,
       lastRefreshAt: Date.now(),
-      nextRefreshAt: Date.now() + REFRESH_MS,
+      nextRefreshAt: Date.now() + refreshMs(),
     });
 
     // Push any events not yet delivered to Telegram (retries once the bot is reachable).
@@ -199,8 +218,8 @@ async function scan(kind: 'scanning' | 'refreshing') {
 function startTimer() {
   cancelTimer?.();
   // Worker-backed: a background tab clamps setInterval, delaying refreshes.
-  cancelTimer = setBackgroundInterval(() => void scan('refreshing'), REFRESH_MS);
-  setState({ nextRefreshAt: Date.now() + REFRESH_MS });
+  cancelTimer = setBackgroundInterval(() => void scan('refreshing'), refreshMs());
+  setState({ nextRefreshAt: Date.now() + refreshMs() });
 }
 
 /** Normalise an address for de-dup/compare (lowercase, trimmed). */
@@ -246,7 +265,7 @@ export function removeWallet(addr: string) {
   }
 }
 
-/** Manual refresh (also restarts the 3-min countdown). */
+/** Manual refresh (also restarts the auto-refresh countdown). */
 export function refreshNow() {
   if (state.wallets.length === 0) return;
   startTimer();
@@ -259,6 +278,26 @@ export function setAlertsOn(on: boolean) {
   if (on && typeof Notification !== 'undefined' && Notification.permission === 'default') {
     void Notification.requestPermission();
   }
+}
+
+/**
+ * Change scan settings. Chain and staking changes rescan straight away (positions
+ * on a chain just switched off are dropped at once); a new interval restarts the
+ * countdown; the minimum value only filters what's shown.
+ */
+export function setScanSettings(patch: Partial<ScanSettings>) {
+  const prev = state.settings;
+  const settings = { ...prev, ...patch };
+  writeLS(SETTINGS_KEY, settings);
+  const off = new Set(settings.disabledChains);
+  setState({ settings, positions: state.positions?.filter((p) => !off.has(p.chain)) ?? null });
+  if (state.wallets.length === 0) return;
+  if (settings.refreshMin !== prev.refreshMin) startTimer();
+  const rescan =
+    settings.staked !== prev.staked ||
+    settings.disabledChains.length !== prev.disabledChains.length ||
+    settings.disabledChains.some((c) => !prev.disabledChains.includes(c));
+  if (rescan) void scan('refreshing');
 }
 
 export function clearEvents() {

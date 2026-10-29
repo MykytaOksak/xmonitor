@@ -1,19 +1,23 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import type { NetworkId } from '../config/networks';
+import { NETWORKS, type NetworkId } from '../config/networks';
+import { PF_SCAN_CHAINS } from '../portfolio/config';
 import type { Position } from '../portfolio/reader';
 import {
   addWallet,
   clearEvents,
   getSnapshot,
   refreshNow,
+  REFRESH_CHOICES,
   removeWallet,
   setAlertsOn,
+  setScanSettings,
   subscribe,
   type RangeEvent,
+  type ScanSettings,
 } from '../portfolio/monitor';
 import { useApp } from '../state/store';
-import { C, capsLabel, mono, sans } from '../theme';
-import { NetLogo } from './ui';
+import { C, capsLabel, chip, mono, sans } from '../theme';
+import { NetLogo, SegBtn, UnitInput } from './ui';
 
 const usd = (n: number) =>
   n >= 0.005
@@ -34,7 +38,9 @@ export function PortfolioView() {
 
   const loading = m.status === 'scanning';
   const refreshing = m.status === 'refreshing';
-  const positions = m.positions;
+  const { minUsd } = m.settings;
+  const positions = m.positions?.filter((p) => p.usd >= minUsd) ?? null;
+  const hiddenCount = (m.positions?.length ?? 0) - (positions?.length ?? 0);
   const hasWallets = m.wallets.length > 0;
   const multi = m.wallets.length > 1;
 
@@ -163,6 +169,8 @@ export function PortfolioView() {
           </div>
         )}
 
+        <ScanSettingsPanel settings={m.settings} />
+
         {/* summary + controls */}
         {positions && (
           <div
@@ -183,6 +191,7 @@ export function PortfolioView() {
             <span style={{ ...mono(10, 500), color: C.label }}>
               {positions.length} position{positions.length === 1 ? '' : 's'}
               {multi ? ` · ${m.wallets.length} wallets` : ''}
+              {hiddenCount > 0 ? ` · ${hiddenCount} under ${usd(minUsd)} hidden` : ''}
             </span>
 
             <span style={{ ...mono(9.5, 500), color: C.secondary, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -279,14 +288,137 @@ export function PortfolioView() {
 
         {!hasWallets && !loading && (
           <div style={{ ...sans(12), lineHeight: 1.6, color: C.body, maxWidth: 480, paddingTop: 4 }}>
-            Add one or more wallets to load their DeFi liquidity positions — Uniswap v3 on Plasma and
-            Uniswap v4 on Monad (EVM address), and Yuzu on Movement (Movement address). A Monad v4
-            position can also be added directly by its id (e.g. <code>monad:599441</code>). Positions
-            are read on-chain, refresh automatically every 3 minutes, and can alert you when they move
-            in or out of range.
+            Add one or more wallets to load their DeFi liquidity positions — Aero on Ethereum,
+            Aerodrome and PancakeSwap on Base, Uniswap v3 on Plasma and Uniswap v4 on Monad (EVM
+            address), and Yuzu on Movement (Movement address). A Monad v4 position can also be added
+            directly by its id (e.g. <code>monad:599441</code>). Positions are read on-chain, refresh
+            automatically, and can alert you when they move in or out of range.
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+const fieldLabel: React.CSSProperties = {
+  fontSize: 10,
+  color: C.secondary,
+  display: 'block',
+  marginBottom: 6,
+};
+
+/** Collapsible scan settings: chains, staked scan, refresh interval, dust cutoff. */
+function ScanSettingsPanel({ settings }: { settings: ScanSettings }) {
+  const [open, setOpen] = useState(false);
+  const [minDraft, setMinDraft] = useState(String(settings.minUsd));
+  const off = new Set(settings.disabledChains);
+  const onCount = PF_SCAN_CHAINS.filter((c) => !off.has(c.id)).length;
+
+  const toggleChain = (id: string) =>
+    setScanSettings({
+      disabledChains: off.has(id) ? settings.disabledChains.filter((c) => c !== id) : [...settings.disabledChains, id],
+    });
+  const setMin = (raw: string) => {
+    const clean = raw.replace(/[^0-9.]/g, '');
+    setMinDraft(clean);
+    const v = parseFloat(clean);
+    setScanSettings({ minUsd: isNaN(v) ? 0 : v });
+  };
+
+  const summary = [
+    `${onCount}/${PF_SCAN_CHAINS.length} chains`,
+    `staked ${settings.staked ? 'on' : 'off'}`,
+    `every ${settings.refreshMin} min`,
+    settings.minUsd > 0 ? `hide < $${settings.minUsd}` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  return (
+    <div style={{ background: C.header, border: `1px solid ${C.borderFaint}` }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          background: 'transparent',
+          border: 'none',
+          padding: '8px 11px',
+          cursor: 'pointer',
+          textAlign: 'left',
+        }}
+      >
+        <span style={{ ...capsLabel(9), letterSpacing: '.1em' }}>{open ? '▾' : '▸'} SCAN SETTINGS</span>
+        {!open && <span style={{ ...mono(9, 500), color: C.label }}>{summary}</span>}
+      </button>
+
+      {open && (
+        <div style={{ padding: '4px 11px 13px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <span style={fieldLabel}>Chains to scan</span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+              {PF_SCAN_CHAINS.map((c) => {
+                const on = !off.has(c.id);
+                const st = chip(on);
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => toggleChain(c.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      ...sans(10),
+                      padding: '4px 7px',
+                      background: st.background,
+                      border: st.border,
+                      color: st.color,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {c.id in NETWORKS && <NetLogo id={c.id as NetworkId} size={11} dim={!on} />}
+                    {c.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div style={{ width: 150 }}>
+              <span style={fieldLabel}>Staked positions</span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <SegBtn active={settings.staked} label="SCAN" size={10} onClick={() => setScanSettings({ staked: true })} />
+                <SegBtn active={!settings.staked} label="SKIP" size={10} onClick={() => setScanSettings({ staked: false })} />
+              </div>
+            </div>
+            <div style={{ width: 230 }}>
+              <span style={fieldLabel}>Auto-refresh every</span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {REFRESH_CHOICES.map((n) => (
+                  <SegBtn
+                    key={n}
+                    active={settings.refreshMin === n}
+                    label={`${n}m`}
+                    size={10}
+                    onClick={() => setScanSettings({ refreshMin: n })}
+                  />
+                ))}
+              </div>
+            </div>
+            <div style={{ width: 130 }}>
+              <span style={fieldLabel}>Hide positions under</span>
+              <UnitInput prefix="$" value={minDraft} onChange={setMin} fontSize={12} />
+            </div>
+          </div>
+          <span style={{ ...mono(9, 400), color: C.label }}>
+            Staked = Aero positions deposited in a gauge on Ethereum; scanning them asks every gauge, which
+            adds a few seconds per wallet. Hidden positions don't raise range alerts.
+          </span>
+        </div>
+      )}
     </div>
   );
 }

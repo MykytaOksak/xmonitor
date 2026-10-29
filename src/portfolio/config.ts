@@ -49,6 +49,15 @@ export const PF_CHAINS: Record<string, PortfolioChain> = {
   },
 };
 
+/** Scan sources the user can switch off (Portfolio scan settings), in display order. */
+export const PF_SCAN_CHAINS: { id: string; name: string }[] = [
+  { id: 'ethereum', name: 'Ethereum' },
+  { id: 'base', name: 'Base' },
+  { id: 'plasma', name: 'Plasma' },
+  { id: 'monad', name: 'Monad' },
+  { id: 'movement', name: 'Movement' },
+];
+
 /** Position-manager flavour — how we read a position NFT. */
 export type PositionKind = 'univ3' | 'univ4';
 
