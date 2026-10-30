@@ -64,7 +64,7 @@ export const PAIRS: PairConfig[] = [
   P('msUSD', 'USDC', ['ethereum', 'optimism', 'base', 'plasma']),
   P('msETH', 'WETH', ['ethereum', 'optimism', 'base', 'plasma'], { unit: 'ETH', defaultNotional: 15 }),
   P('USDG', 'USDC', ['ethereum', 'arbitrum', 'ink', 'solana', 'xlayer']),
-  P('reUSD', 'USDC', ['ethereum'], { note: '+mint/redeem' }),
+  P('reUSD', 'USDC', ['ethereum', 'arbitrum', 'solana'], { note: '+mint/redeem' }),
   P('frxUSD', 'USDC', ['ethereum']),
   P('PYUSD', 'USDC', ['bybitCex', 'ethereum', 'arbitrum', 'solana']),
   P('RLUSD', 'USDC', ['binanceCex', 'bybitCex', 'ethereum']),

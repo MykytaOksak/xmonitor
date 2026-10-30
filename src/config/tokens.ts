@@ -216,6 +216,8 @@ export const TOKENS: TokenMap = {
   },
   reUSD: {
     ethereum: T('0x5086bf358635B81D8C47C66d1C8b9E567Db70c72', 18),
+    arbitrum: T('0x76cE01F0Ef25AA66cC5F1E546a005e4A63B25609', 18),
+    solana: T('2uxaYT1fVrp6Fg2BrxQcyKSW91hefM6dG9krpbeDiirT', 9),
   },
   // ——— xStocks (Backed Finance tokenised equities) ———
   // Each trades on three venues: OKX spot (the "address" is the OKX currency
