@@ -1,11 +1,11 @@
 // Live conversion rates used when a venue trades a proxy for the token a pair
 // is denominated in, so prices stay expressed in the nominal token's terms.
 // See the substitutions in engine.ts (resolveToken).
-import type { NetworkId } from '../config/networks';
+import { NET, type NetworkId } from '../config/networks';
 import { allPairs } from '../config/pairs';
 import { XSTOCK_SYMBOLS, tokenOn } from '../config/tokens';
+import { quote } from './providers';
 
-const BINANCE = '/px/binance';
 const XLAYER_RPC = '/px/xlayer';
 
 /**
@@ -29,8 +29,12 @@ const JUP_PRICE = '/px/jup-lite';
 // ERC-4626 convertToAssets(1e18) — base token per 1 wrapped token.
 const CONVERT_TO_ASSETS_1E18 = '0x07a2d13a' + (10n ** 18n).toString(16).padStart(64, '0');
 
-// USDT received per 1 USDC on Binance spot. Defaults to 1 until first fetch.
+// USDT per 1 USDC on Ethereum. Defaults to 1 until first fetch.
 let _usdcUsdt = 1;
+const USDC_USDT_SIZE = 50_000; // the USDC/USDT pair's default notional
+// One bad route would skew every USDT-substituted row, so a quote that loses
+// more than this on the round trip is ignored and the last rate kept.
+const USDC_USDT_MAX_SPREAD = 0.01;
 let _at = 0;
 
 // Per-xStock rates, keyed by symbol. Both default to 1 (no conversion) until
@@ -54,11 +58,25 @@ export const xstockUiScale = (symbol: string): number => _uiScale[symbol] ?? 1;
 export const vaultRate = (net: NetworkId, address: string): number =>
   _vaultRate[`${net}:${address.toLowerCase()}`] ?? 1;
 
+/**
+ * Mid of the Ethereum USDC/USDT market: the rate selling USDC gets and the rate
+ * buying it costs, each at real size, so the route's fee doesn't lean the
+ * conversion to one side.
+ */
 async function refreshUsdcUsdt(): Promise<void> {
-  const r = await fetch(`${BINANCE}/api/v3/ticker/price?symbol=USDCUSDT`);
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  const p = parseFloat((await r.json()).price);
-  if (isFinite(p) && p > 0) _usdcUsdt = p;
+  const net = NET('ethereum');
+  const usdc = tokenOn('USDC', 'ethereum');
+  const usdt = tokenOn('USDT', 'ethereum');
+  if (!usdc || !usdt) return;
+  const [sold, bought] = await Promise.all([
+    quote({ net, tokenIn: usdc, tokenOut: usdt, amountInHuman: USDC_USDT_SIZE }),
+    quote({ net, tokenIn: usdt, tokenOut: usdc, amountInHuman: USDC_USDT_SIZE }),
+  ]);
+  const sell = sold.outHuman / USDC_USDT_SIZE; // USDT received per USDC sold
+  const buy = USDC_USDT_SIZE / bought.outHuman; // USDT paid per USDC bought
+  if (!isFinite(sell) || !isFinite(buy) || sell <= 0 || buy <= 0) return;
+  if (Math.abs(buy - sell) / buy > USDC_USDT_MAX_SPREAD) return;
+  _usdcUsdt = (buy + sell) / 2;
 }
 
 /** One JSON-RPC batch of convertToAssets(1e18); null where the call failed. */

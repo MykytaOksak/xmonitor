@@ -92,7 +92,7 @@ function resolveToken(symbol: string, netId: NetworkId, pair: PairConfig): Resol
     return { dep, toActual: (n) => n, toNominal: (a) => a };
   }
   // Plasma has no canonical USDC — quote against USDT0 and convert amounts by
-  // the live Binance USDC/USDT rate so prices remain in USDC terms.
+  // the live Ethereum USDC/USDT rate so prices remain in USDC terms.
   if (netId === 'plasma' && symbol === 'USDC') {
     const dep = tokenOn('USDT', 'plasma');
     if (dep) {
@@ -102,7 +102,7 @@ function resolveToken(symbol: string, netId: NetworkId, pair: PairConfig): Resol
   }
   // Ink is the same story: its USDC is effectively unquotable on-chain (the
   // USDC/USDG pool holds cents) while the deep market is against USD₮0, so
-  // quote that and convert back by the live Binance rate to keep USDC terms.
+  // quote that and convert back by the live Ethereum rate to keep USDC terms.
   if (netId === 'ink' && symbol === 'USDC') {
     const dep = tokenOn('USDT', 'ink');
     if (dep) {
@@ -121,7 +121,7 @@ function resolveToken(symbol: string, netId: NetworkId, pair: PairConfig): Resol
     }
   }
   // Bybit lists USDe against USDT only, so quote that book and convert the
-  // amounts by the live Binance USDC/USDT rate to keep prices in USDC terms —
+  // amounts by the live Ethereum USDC/USDT rate to keep prices in USDC terms —
   // the same substitution the USDT-only chains above make.
   if (netId === 'bybitCex' && symbol === 'USDC') {
     const dep = tokenOn('USDT', 'bybitCex');
@@ -132,7 +132,7 @@ function resolveToken(symbol: string, netId: NetworkId, pair: PairConfig): Resol
   }
   // X Layer routes USDG through USD₮0: the USDG/USD₮0 pool is ~5x the USDG/USDC
   // one (3.7M + 1.6M vs 312k + 691k), so quote that and convert by the live
-  // Binance rate to keep prices in USDC terms. Scoped to the USDG market on
+  // Ethereum rate to keep prices in USDC terms. Scoped to the USDG market on
   // purpose — GOOGLx and QQQx genuinely trade against USDC on X Layer, and
   // substituting their quote leg would move them to the wrong market.
   if (netId === 'xlayer' && symbol === 'USDC' && (pair.t0 === 'USDG' || pair.t1 === 'USDG')) {

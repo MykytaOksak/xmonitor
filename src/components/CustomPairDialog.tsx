@@ -214,7 +214,7 @@ function TickerPicker({
             checked={!!draft.usdcAdjust && canAdjust}
             onChange={(e) => onChange({ ...draft, usdcAdjust: e.target.checked })}
           />
-          Convert USDT quote to USDC (live Binance rate)
+          Convert USDT quote to USDC (live Ethereum rate)
         </label>
       )}
     </div>
