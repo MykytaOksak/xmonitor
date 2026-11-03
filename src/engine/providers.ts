@@ -130,13 +130,16 @@ async function waitTurn(bucket: RateBucket): Promise<void> {
 }
 
 // ——— dead-venue breaker ———
-// A venue that is down answers every quote with a 5xx or not at all (Canoe and
+// A venue that is down answers every quote with a 5xx or a refusal (Canoe and
 // Oku returned HTTP 525 to everything for days), and each of those attempts
 // costs a proxy request and a rate-limit slot before the route falls back.
 // After a few failures in a row the venue is skipped outright for a while —
 // quote() moves straight on to the next route — then a single success
 // re-opens it. Request-specific failures (400/404: no route, bad pair) don't
-// count.
+// count, and neither does a request that got no answer at all: in the browser
+// that is our own connection dropping (a sleeping laptop fails every request
+// in flight), not the venue — a venue the proxy can't reach comes back as a
+// 502, which does count.
 const BREAKER_TRIP = 3;
 const BREAKER_PAUSE_MS = 10 * 60_000;
 const breaker: Partial<Record<RateBucket, { fails: number; until: number; why: string }>> = {};
@@ -168,13 +171,7 @@ async function requestJson(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     checkBreaker(bucket);
     await waitTurn(bucket);
-    let r: Response;
-    try {
-      r = await fetch(url, init);
-    } catch (e) {
-      venueFailed(bucket, 'unreachable');
-      throw e;
-    }
+    const r = await fetch(url, init);
     if (r.ok) {
       venueOk(bucket);
       return r.json();
