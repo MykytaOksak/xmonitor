@@ -113,7 +113,7 @@ export interface CustomPairSpec {
   /**
    * Per network: the two legs, plus — for a CEX market that only lists against
    * USDT — an opt-in conversion of the quote into USDC terms via the live
-   * Ethereum USDC/USDT rate.
+   * Binance USDC/USDT rate.
    */
   legs: Partial<Record<NetworkId, { t0: CustomLeg; t1: CustomLeg; usdcAdjust?: boolean }>>;
 }
