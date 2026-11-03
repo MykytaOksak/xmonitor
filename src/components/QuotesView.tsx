@@ -950,12 +950,19 @@ function ParallelPane({
           <div style={{ padding: '8px 13px', color: C.secondary, ...sans(11) }}>Pair is disabled.</div>
         ) : (
           rows.map((q) => {
-            // No STATUS column at this width — the price colour carries it.
+            // No STATUS column at this width — the price colour carries it, a
+            // red dot marks a failed network, and hovering gives the reason.
             const refreshing = !!q.refreshing;
+            const failed = q.status === 'error';
             const priceColor = q.status === 'live' ? C.text : C.label;
             const priceOpacity = refreshing && q.status !== 'loading' ? 0.5 : 1;
             return (
-              <div key={q.netId} className="hoverrow" style={{ ...grid, alignItems: 'center', padding: '8px 13px' }}>
+              <div
+                key={q.netId}
+                className="hoverrow"
+                title={failed ? q.err ?? 'Quote failed' : q.status === 'loading' ? 'Loading…' : undefined}
+                style={{ ...grid, alignItems: 'center', padding: '8px 13px', cursor: failed ? 'help' : undefined }}
+              >
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                   <NetLogo id={q.netId} size={13} />
                   <span
@@ -969,6 +976,7 @@ function ParallelPane({
                   >
                     {NET(q.netId).name}
                   </span>
+                  {failed && <StatusDot color={C.red} />}
                 </span>
                 <span
                   className="tnum"
