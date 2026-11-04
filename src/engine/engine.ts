@@ -396,6 +396,19 @@ export async function scanPairNow(pairId: string): Promise<void> {
   await scanPair(pair).catch(() => false);
 }
 
+/**
+ * Quote one network of one pair again, at the pair's current notional, and
+ * store the result. The alert checker uses it to confirm a price before
+ * sending it: one aggregator answer can be an outlier the next one isn't.
+ */
+export async function requoteNet(pairId: string, netId: NetworkId): Promise<NetQuote | null> {
+  const pair = allPairs().find((p) => p.id === pairId);
+  if (!pair) return null;
+  const row = await fetchNetQuote(pair, netId, notionalFor(pairId));
+  useApp.getState().updateRow(pairId, row);
+  return row;
+}
+
 /** Debug helper: how many networks have a configured token pair. */
 export const configuredNets = (): number =>
   allPairs().reduce(

@@ -15,7 +15,9 @@ if (refresh >= 5) useApp.setState({ refresh });
 
 initSettings();
 onScanCycle(() => {
-  for (const hit of evaluateAlerts()) void notify('price', hit.text, hit.pairId);
+  void evaluateAlerts().then((hits) => {
+    for (const hit of hits) void notify('price', hit.text, hit.pairId);
+  });
 });
 startEngine();
 startHttp(parseInt(process.env.PORT ?? '8080', 10));
