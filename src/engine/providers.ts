@@ -1,4 +1,4 @@
-import type { Network, QuoteRoute } from '../config/networks';
+import { NETWORKS, type Network, type QuoteRoute } from '../config/networks';
 import { tokenOn, type TokenDeployment } from '../config/tokens';
 import { sleep } from './timers';
 import { quoteUniV3Pool, quoteUniV3PoolAt } from './univ3pool';
@@ -15,6 +15,7 @@ const BASE = {
   jupUltra: '/px/jup-ultra',
   jupLite: '/px/jup-lite',
   avalancheRpc: '/px/avax-rpc',
+  ethRpc: '/px/eth',
   fluentRpc: '/px/fluent',
   xlayerRpc: '/px/xlayer',
   okx: '/px/okx',
@@ -53,6 +54,7 @@ type RateBucket =
   | 'enso'
   | 'jupiter'
   | 'avalancheRpc'
+  | 'ethRpc'
   | 'fluent'
   | 'xlayerRpc'
   | 'okxCex'
@@ -73,6 +75,7 @@ const RATE_LIMITS: Record<RateBucket, { minDelayMs: number; maxRetries: number }
   enso: { minDelayMs: 1_100, maxRetries: 2 },
   jupiter: { minDelayMs: 300, maxRetries: 2 },
   avalancheRpc: { minDelayMs: 350, maxRetries: 1 },
+  ethRpc: { minDelayMs: 250, maxRetries: 1 },
   fluent: { minDelayMs: 350, maxRetries: 1 },
   xlayerRpc: { minDelayMs: 250, maxRetries: 1 },
   inkRpc: { minDelayMs: 250, maxRetries: 1 },
@@ -93,6 +96,7 @@ const rateState: Record<RateBucket, { nextAt: number; tail: Promise<void> }> = {
   enso: { nextAt: 0, tail: Promise.resolve() },
   jupiter: { nextAt: 0, tail: Promise.resolve() },
   avalancheRpc: { nextAt: 0, tail: Promise.resolve() },
+  ethRpc: { nextAt: 0, tail: Promise.resolve() },
   fluent: { nextAt: 0, tail: Promise.resolve() },
   xlayerRpc: { nextAt: 0, tail: Promise.resolve() },
   inkRpc: { nextAt: 0, tail: Promise.resolve() },
@@ -581,6 +585,82 @@ const avalancheSavUsdMintRedeem: Provider = async ({ net, tokenIn, tokenOut, amo
   throw new Error('savusd mint/redeem: unsupported pair');
 };
 
+// ——— Ethereum reUSD — re.xyz mint from / instant redeem to sUSDe ———
+// The venue the re.xyz app's Mint/Redeem tab trades against. Minting takes
+// sUSDe into the deposit vault; instant redemption pays sUSDe back out of the
+// redemption gateway, less its fee. The pair is priced in USDC, so the other
+// end of each trade is an Ethereum sUSDe/USDC swap through the usual routes.
+const REUSD_VAULT = '0x4691C475bE804Fa85f91c2D6D0aDf03114de3093';
+const REUSD_GATEWAY = '0x8aEb9453EF22Cb38abC7a3Af9c208F65C1BfE31e';
+const ETH_REUSD = '0x5086bf358635B81D8C47C66d1C8b9E567Db70c72';
+const ETH_USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
+const SEL_REUSD_PREVIEW_DEPOSIT = '0xb8f82b26'; // previewDeposit(address,uint256)
+const SEL_PREVIEW_INSTANT_REDEMPTION = '0x4f55a229'; // previewInstantRedemption(address,uint256)
+// The gateway previews a redemption only for a KYC-approved wallet and
+// returns zeros for anyone else. These have all redeemed through it, so they
+// pass; the first that answers is used. The preview is a read, so no wallet
+// is involved in anything but the price.
+const REUSD_PREVIEW_WALLETS = [
+  '0xaa34d20be3f9623ccf5bff53ef4dfa765c3f5dd5',
+  '0x35a59349adcf1b3dd3b38696f3c92573c767c9c5',
+  '0x1fab89243406ac35feae6a037c01435297595cc0',
+];
+
+async function ethEthCall(to: string, data: string): Promise<string> {
+  const j = await jpost('ethRpc', BASE.ethRpc, {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'eth_call',
+    params: [{ to, data }, 'latest'],
+  });
+  if (j.error) throw new Error(`ethereum rpc: ${j.error.message}`);
+  return j.result as string;
+}
+
+/** The sUSDe/USDC leg, on Ethereum's own routes. */
+const ethSwap = (tokenIn: TokenDeployment, tokenOut: TokenDeployment, amountInHuman: number) =>
+  quote({ net: NETWORKS.ethereum, tokenIn, tokenOut, amountInHuman });
+
+const reUsdMintRedeem: Provider = async ({ net, tokenIn, tokenOut, amountInHuman }) => {
+  if (net.id !== 'ethereumMint') throw new Error('reusd mint/redeem: unsupported network');
+  const susde = tokenOn('sUSDe', 'ethereum');
+  if (!susde) throw new Error('reusd mint/redeem: no sUSDe on ethereum');
+
+  if (sameAddr(tokenIn.address, ETH_USDC) && sameAddr(tokenOut.address, ETH_REUSD)) {
+    const swap = await ethSwap(tokenIn, susde, amountInHuman);
+    const amount = BigInt(toRaw(swap.outHuman, susde.decimals));
+    const res = await ethEthCall(
+      REUSD_VAULT,
+      SEL_REUSD_PREVIEW_DEPOSIT + addrWord(susde.address) + word(amount),
+    );
+    // (shares, depositFees, isAllowed, errorMessage)
+    if (!res || res.length < 194) throw new Error('reusd mint: empty preview');
+    if (BigInt('0x' + res.slice(130, 194)) === 0n) throw new Error('reusd mint: deposits not allowed');
+    return { outHuman: parseReturnAmount(res, tokenOut.decimals), router: `Mint/Redeem · ${swap.router}` };
+  }
+
+  if (sameAddr(tokenIn.address, ETH_REUSD) && sameAddr(tokenOut.address, ETH_USDC)) {
+    const shares = BigInt(toRaw(amountInHuman, tokenIn.decimals));
+    let payout = 0n;
+    for (const wallet of REUSD_PREVIEW_WALLETS) {
+      const res = await ethEthCall(
+        REUSD_GATEWAY,
+        SEL_PREVIEW_INSTANT_REDEMPTION + addrWord(wallet) + word(shares),
+      );
+      // (grossPayout, fee, netPayout, available)
+      if (!res || res.length < 258) continue;
+      if (BigInt('0x' + res.slice(194, 258)) === 0n) continue;
+      payout = BigInt('0x' + res.slice(130, 194));
+      if (payout > 0n) break;
+    }
+    if (payout === 0n) throw new Error('reusd redeem: instant redemption unavailable');
+    const swap = await ethSwap(susde, tokenOut, fromRaw(payout, susde.decimals));
+    return { outHuman: swap.outHuman, router: `Mint/Redeem · ${swap.router}` };
+  }
+
+  throw new Error('reusd mint/redeem: unsupported pair');
+};
+
 // ——— Fluent — sUSDnr/USDnr DEX quote via the FluxFlow quoter ———
 const FLUX_QUOTER = '0x4cfc01cE8bcEEC0371e4C03223F9d1E46622b4Ec';
 const FLUX_FEE = 500n;
@@ -894,6 +974,7 @@ const PROVIDERS: Record<QuoteRoute, Provider> = {
   enso,
   jupiter,
   'avalanche-savusd-mintredeem': avalancheSavUsdMintRedeem,
+  'reusd-mintredeem': reUsdMintRedeem,
   'fluent-susdnr-stakeunstake': fluentStakeUnstake,
   fluent,
   'xlayer-univ3': xlayerUniV3,

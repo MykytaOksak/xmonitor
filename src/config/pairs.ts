@@ -64,7 +64,7 @@ export const PAIRS: PairConfig[] = [
   P('msUSD', 'USDC', ['ethereum', 'optimism', 'base', 'plasma']),
   P('msETH', 'WETH', ['ethereum', 'optimism', 'base', 'plasma'], { unit: 'ETH', defaultNotional: 15 }),
   P('USDG', 'USDC', ['ethereum', 'arbitrum', 'ink', 'solana', 'xlayer']),
-  P('reUSD', 'USDC', ['ethereum', 'arbitrum', 'solana'], { note: '+mint/redeem' }),
+  P('reUSD', 'USDC', ['ethereum', 'ethereumMint', 'arbitrum', 'solana'], { note: '+mint/redeem' }),
   P('frxUSD', 'USDC', ['ethereum']),
   P('PYUSD', 'USDC', ['bybitCex', 'ethereum', 'arbitrum', 'solana']),
   P('RLUSD', 'USDC', ['binanceCex', 'bybitCex', 'ethereum']),
@@ -122,11 +122,15 @@ export const CUSTOM_PREFIX = 'custom:';
 export const isCustomPair = (id: string): boolean => id.startsWith(CUSTOM_PREFIX);
 
 /** Networks a custom pair may be quoted on — everything except routes hardwired
- *  to one token (savUSD mint/redeem, sUSDnr stake/unstake). CEX venues qualify. */
+ *  to one token (savUSD and reUSD mint/redeem, sUSDnr stake/unstake). CEX
+ *  venues qualify. */
 export const customPairNetworks = (): NetworkId[] =>
   (Object.keys(NETWORKS) as NetworkId[]).filter((n) =>
     NETWORKS[n].routes.some(
-      (r) => r !== 'avalanche-savusd-mintredeem' && r !== 'fluent-susdnr-stakeunstake',
+      (r) =>
+        r !== 'avalanche-savusd-mintredeem' &&
+        r !== 'reusd-mintredeem' &&
+        r !== 'fluent-susdnr-stakeunstake',
     ),
   );
 

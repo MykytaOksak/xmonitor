@@ -6,6 +6,7 @@ export type NetworkId =
   | 'bnb'
   | 'avalanche'
   | 'avalancheMint'
+  | 'ethereumMint'
   | 'mantle'
   | 'katana'
   | 'ink'
@@ -34,6 +35,8 @@ export type NetworkId =
 //  enso             — Enso, Ink (needs ENSO_KEY, attached server-side)
 //  jupiter          — Jupiter Ultra with Lite fallback, Solana
 //  avalanche-savusd-mintredeem — Avalanche savUSD direct mint/redeem preview
+//  reusd-mintredeem — re.xyz reUSD mint from / instant redeem to sUSDe, with
+//                     the sUSDe/USDC leg quoted on Ethereum
 //  fluent-susdnr-stakeunstake — Fluent sUSDnr/USDnr Nerona stake/unstake preview
 //  oku-flowstream  — OKU Flowstream, special Monad savUSD/USDC route
 export type QuoteRoute =
@@ -46,6 +49,7 @@ export type QuoteRoute =
   | 'enso'
   | 'jupiter'
   | 'avalanche-savusd-mintredeem'
+  | 'reusd-mintredeem'
   | 'fluent-susdnr-stakeunstake'
   | 'oku-flowstream'
   | 'fluent'
@@ -110,6 +114,11 @@ export const NETWORKS: Record<NetworkId, Network> = {
     id: 'avalancheMint', name: 'Avalanche', mono: 'AV', color: '#C94F4F', kind: 'evm',
     chainId: 43114,
     routes: ['avalanche-savusd-mintredeem'],
+  },
+  ethereumMint: {
+    id: 'ethereumMint', name: 'Ethereum', mono: 'Ξ', color: '#6E79D6', kind: 'evm',
+    chainId: 1,
+    routes: ['reusd-mintredeem'],
   },
   mantle: {
     id: 'mantle', name: 'Mantle', mono: 'M', color: '#6FA095', kind: 'evm',

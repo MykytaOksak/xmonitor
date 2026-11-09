@@ -45,10 +45,12 @@ const useTick = (ms: number, active: boolean) => {
 function opportunityTag(best: BestRoute): string {
   const buyActions: Partial<Record<NetworkId, string>> = {
     avalancheMint: 'MINT',
+    ethereumMint: 'MINT',
     fluentStake: 'STAKE',
   };
   const sellActions: Partial<Record<NetworkId, string>> = {
     avalancheMint: 'REDEEM',
+    ethereumMint: 'REDEEM',
     fluentStake: 'UNSTAKE',
   };
   const buyAction = buyActions[best.buyNet];
@@ -61,6 +63,7 @@ function opportunityTag(best: BestRoute): string {
 function netRouteSuffix(id: NetworkId): string | undefined {
   const suffixes: Partial<Record<NetworkId, string>> = {
     avalancheMint: 'mint/redeem',
+    ethereumMint: 'mint/redeem',
     fluentStake: 'stake/unstake',
   };
   return suffixes[id];

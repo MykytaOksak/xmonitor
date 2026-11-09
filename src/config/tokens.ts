@@ -47,6 +47,7 @@ export const TOKENS: TokenMap = {
     bnb: T('0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', 18), // BSC USDC is 18 decimals
     avalanche: T('0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E', 6),
     avalancheMint: T('0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E', 6),
+    ethereumMint: T('0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', 6),
     mantle: T('0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9', 6),
     solana: T('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 6),
     katana: T('0x203A662b0BD271A6ed5a60EdFbd04bFce608FD36', 6), // vbUSDC (Katana docs)
@@ -216,6 +217,7 @@ export const TOKENS: TokenMap = {
   },
   reUSD: {
     ethereum: T('0x5086bf358635B81D8C47C66d1C8b9E567Db70c72', 18),
+    ethereumMint: T('0x5086bf358635B81D8C47C66d1C8b9E567Db70c72', 18),
     arbitrum: T('0x76cE01F0Ef25AA66cC5F1E546a005e4A63B25609', 18),
     solana: T('2uxaYT1fVrp6Fg2BrxQcyKSW91hefM6dG9krpbeDiirT', 9),
   },
