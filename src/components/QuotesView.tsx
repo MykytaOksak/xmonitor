@@ -16,7 +16,7 @@ import {
 import { C, capsLabel, mono, sans } from '../theme';
 import { useIsNarrow, useIsPhone } from '../useResponsive';
 import { CustomPairDialog } from './CustomPairDialog';
-import { NetChip, NetLogo, StatusDot, UnitInput, ViewModeMenu } from './ui';
+import { HoverTip, NetChip, NetLogo, StatusDot, UnitInput, ViewModeMenu } from './ui';
 
 interface PairVM {
   pair: PairConfig;
@@ -472,10 +472,11 @@ function NetTableRow({
   // Dim the (previous) price while this row is being re-fetched.
   const priceOpacity = refreshing && q.status !== 'loading' ? 0.5 : 1;
   return (
+    <HoverTip text={q.status === 'error' ? q.err || 'Quote failed (no reason given)' : undefined}>
     <div
       className="hoverrow"
-      title={q.err}
       style={{
+        cursor: q.status === 'error' ? 'help' : undefined,
         ...netGrid(phone, narrow),
         alignItems: 'center',
         padding: `9px ${hpad}px`,
@@ -524,6 +525,7 @@ function NetTableRow({
         </span>
       )}
     </div>
+    </HoverTip>
   );
 }
 
@@ -960,10 +962,9 @@ function ParallelPane({
             const priceColor = q.status === 'live' ? C.text : C.label;
             const priceOpacity = refreshing && q.status !== 'loading' ? 0.5 : 1;
             return (
+              <HoverTip key={q.netId} text={failed ? q.err || 'Quote failed (no reason given)' : undefined}>
               <div
-                key={q.netId}
                 className="hoverrow"
-                title={failed ? q.err ?? 'Quote failed' : q.status === 'loading' ? 'Loading…' : undefined}
                 style={{ ...grid, alignItems: 'center', padding: '8px 13px', cursor: failed ? 'help' : undefined }}
               >
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
@@ -994,6 +995,7 @@ function ParallelPane({
                   {fmtPrice(q.sell, vm.pair.dp)}
                 </span>
               </div>
+              </HoverTip>
             );
           })
         )}

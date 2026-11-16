@@ -1,4 +1,5 @@
-import type { CSSProperties } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { NET, type NetworkId } from '../config/networks';
 import type { PaneCount, QuotesMode } from '../state/store';
 import { C, chip, mono, sans, seg } from '../theme';
@@ -384,5 +385,50 @@ export function ViewModeMenu({
         <span style={{ fontSize: 9, color: C.label }}>{open ? '▾' : '▴'}</span>
       </button>
     </div>
+  );
+}
+
+/**
+ * Shows `text` next to the cursor while it is over the children. A native
+ * title tooltip waits about a second and doesn't show in every browser or
+ * app window, which hid the reason a network failed. With no text it
+ * renders the children alone.
+ */
+export function HoverTip({ text, children }: { text?: string; children: ReactNode }) {
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null);
+  if (!text) return <>{children}</>;
+  const move = (e: React.MouseEvent) => setAt({ x: e.clientX, y: e.clientY });
+  const width = 340;
+  const below = at && at.y < window.innerHeight - 120;
+  return (
+    <span style={{ display: 'contents' }} onMouseEnter={move} onMouseMove={move} onMouseLeave={() => setAt(null)}>
+      {children}
+      {at &&
+        createPortal(
+          <div
+            role="tooltip"
+            style={{
+              position: 'fixed',
+              zIndex: 1000,
+              left: Math.max(8, Math.min(at.x + 12, window.innerWidth - width - 8)),
+              ...(below ? { top: at.y + 18 } : { bottom: window.innerHeight - at.y + 10 }),
+              maxWidth: width,
+              padding: '7px 9px',
+              background: C.header,
+              border: `1px solid ${C.borderInput}`,
+              color: C.text,
+              ...mono(10.5, 400),
+              lineHeight: 1.45,
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere',
+              pointerEvents: 'none',
+              boxShadow: '0 6px 18px rgba(0,0,0,.45)',
+            }}
+          >
+            {text}
+          </div>,
+          document.body,
+        )}
+    </span>
   );
 }
