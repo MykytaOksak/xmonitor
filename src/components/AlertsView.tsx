@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { NET } from '../config/networks';
 import { allPairs, pairById, pairName } from '../config/pairs';
+import { anyAlertEnabled, arbOf, computeBest } from '../engine/arb';
 import { connectBot, disconnectBot } from '../engine/bot';
-import { fmtAge } from '../engine/format';
-import type { PairAlert } from '../engine/types';
+import { fmtAge, fmtSpread } from '../engine/format';
+import type { NetQuote, PairAlert } from '../engine/types';
 import { defaultAlert, useApp } from '../state/store';
 import { C, mono, sans } from '../theme';
 import { useIsNarrow } from '../useResponsive';
@@ -23,6 +24,54 @@ export function AlertsView() {
     error: { label: '✕ Save failed', color: C.red, blink: false },
   }[s.saveState];
 
+  const arb = arbOf(alert);
+  const snap = s.snapshots[s.alertSel];
+  const best = snap && snap.at > 0 ? computeBest(pair, Object.values(snap.rows) as NetQuote[], snap.at) : null;
+  const arbCard = (
+    <div style={{ background: C.panel, border: `1px solid ${C.border}`, padding: 15 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <span style={{ ...mono(10, 600), letterSpacing: '.08em', color: C.chipText }}>ARBITRAGE ALERT</span>
+        <Switch on={arb.enabled} onClick={() => s.updateArbDraft(s.alertSel, { enabled: !arb.enabled })} />
+      </div>
+      <div style={{ opacity: arb.enabled ? 1 : 0.4, display: 'flex', flexDirection: 'column', gap: 13 }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ width: 140, flex: 'none' }}>
+            <span style={fieldLabel}>Min spread</span>
+            <UnitInput
+              value={arb.minSpread}
+              unit="%"
+              onChange={(v) => s.updateArbDraft(s.alertSel, { minSpread: v.replace(/[^0-9.-]/g, '') })}
+            />
+          </div>
+          <div style={{ width: 96, flex: 'none' }}>
+            <span style={fieldLabel}>Cooldown</span>
+            <UnitInput
+              value={arb.cooldown}
+              unit="min"
+              onChange={(v) => s.updateArbDraft(s.alertSel, { cooldown: v.replace(/[^0-9]/g, '') })}
+            />
+          </div>
+          <div style={{ flex: '1 1 200px', minWidth: 0, alignSelf: 'flex-end' }}>
+            <span style={{ ...mono(10, 400), color: C.label, lineHeight: 1.5 }}>
+              Notifies when buying on one network and selling on another pays at least this spread at the
+              pair’s size, before gas. Same pick as the opportunities feed, confirmed with a fresh quote.
+              {best && (
+                <>
+                  {' '}
+                  Now:{' '}
+                  <span style={{ color: best.spreadPct >= parseFloat(arb.minSpread) ? C.green : C.secondary }}>
+                    {fmtSpread(best.spreadPct)}
+                  </span>{' '}
+                  {NET(best.buyNet).name} → {NET(best.sellNet).name}
+                </>
+              )}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const sideCard = (side: 'buy' | 'sell', title: string) => {
     const cfg = alert[side];
     return (
@@ -39,24 +88,7 @@ export function AlertsView() {
           }}
         >
           <span style={{ ...mono(10, 600), letterSpacing: '.08em', color: C.chipText }}>{title}</span>
-          {/* sharp-corner switch */}
-          <button
-            onClick={() => s.updateDraft(s.alertSel, side, { enabled: !cfg.enabled })}
-            style={{
-              width: 34,
-              height: 18,
-              padding: 2,
-              border: 'none',
-              cursor: 'pointer',
-              background: cfg.enabled ? C.green : 'rgba(255,255,255,.14)',
-              display: 'flex',
-              justifyContent: cfg.enabled ? 'flex-end' : 'flex-start',
-              alignItems: 'center',
-              boxSizing: 'border-box',
-            }}
-          >
-            <span style={{ width: 14, height: 14, background: C.surface, display: 'block' }} />
-          </button>
+          <Switch on={cfg.enabled} onClick={() => s.updateDraft(s.alertSel, side, { enabled: !cfg.enabled })} />
         </div>
 
         <div style={{ opacity: cfg.enabled ? 1 : 0.4, display: 'flex', flexDirection: 'column', gap: 13 }}>
@@ -181,7 +213,7 @@ export function AlertsView() {
         }}
       >
         <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.borderFaint}` }}>
-          <span style={sans(12, 600)}>Price alerts</span>
+          <span style={sans(12, 600)}>Alerts</span>
         </div>
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {allPairs().map((p) => {
@@ -189,7 +221,7 @@ export function AlertsView() {
             // SET only when an alert actually has an enabled side, so the badge
             // matches the editor's toggles (an untouched pair reads OFF).
             const draft = s.drafts[p.id] ?? s.savedAlerts[p.id];
-            const hasAlert = !!draft && (draft.buy.enabled || draft.sell.enabled);
+            const hasAlert = anyAlertEnabled(draft);
             const paused = hasAlert && !!s.savedAlerts[p.id]?.paused;
             return (
               <button
@@ -265,6 +297,8 @@ export function AlertsView() {
             {sideCard('buy', 'BUY PRICE ALERT')}
             {sideCard('sell', 'SELL PRICE ALERT')}
           </div>
+
+          {arbCard}
 
           <BotPanel />
 
@@ -433,6 +467,51 @@ function BotPanel() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Sharp-corner on/off switch. */
+function Switch({ on, onClick }: { on: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: 34,
+        height: 18,
+        padding: 2,
+        border: 'none',
+        cursor: 'pointer',
+        background: on ? C.green : 'rgba(255,255,255,.14)',
+        display: 'flex',
+        justifyContent: on ? 'flex-end' : 'flex-start',
+        alignItems: 'center',
+        boxSizing: 'border-box',
+      }}
+    >
+      <span style={{ width: 14, height: 14, background: C.surface, display: 'block' }} />
+    </button>
+  );
+}
+
+function UnitInput({ value, unit, onChange }: { value: string; unit: string; onChange: (v: string) => void }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', background: C.header, border: `1px solid ${C.borderInput}` }}>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: '100%',
+          minWidth: 0,
+          background: 'transparent',
+          border: 'none',
+          color: C.text,
+          fontSize: 13,
+          padding: '7px 9px',
+        }}
+      />
+      <span style={{ padding: '0 8px', color: C.label, fontSize: 10 }}>{unit}</span>
     </div>
   );
 }

@@ -47,9 +47,21 @@ export interface SideAlert {
   nets: Record<string, boolean>;
 }
 
+/**
+ * Fires when buying on one network and selling on another (the same pick the
+ * opportunities feed makes) clears a minimum spread at the pair's size.
+ */
+export interface ArbAlert {
+  enabled: boolean;
+  minSpread: string; // percent, numeric string
+  cooldown: string; // minutes, numeric string
+}
+
 export interface PairAlert {
   buy: SideAlert;
   sell: SideAlert;
+  /** Missing on alerts saved before arbitrage alerts existed: read via arbOf. */
+  arb?: ArbAlert;
   /** Muted from the bot: both sides keep their settings but nothing fires. */
   paused?: boolean;
 }
@@ -75,7 +87,7 @@ export type SettingsOp =
 export interface BotNotification {
   id: number;
   at: number;
-  kind: 'price' | 'portfolio' | 'system';
+  kind: 'price' | 'arb' | 'portfolio' | 'system';
   text: string;
   delivered: boolean;
 }

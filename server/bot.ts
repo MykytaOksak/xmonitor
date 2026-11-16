@@ -6,8 +6,9 @@
 // a different bot) while the hosted one is live.
 import { NET } from '../src/config/networks';
 import { allPairs, pairName, type PairConfig } from '../src/config/pairs';
-import { fmtAge, fmtNotional, fmtPrice } from '../src/engine/format';
-import type { BotNotification, BotStatus, NetQuote, PairAlert, SideAlert } from '../src/engine/types';
+import { anyAlertEnabled, arbOf, computeBest } from '../src/engine/arb';
+import { fmtAge, fmtNotional, fmtPrice, fmtSpread } from '../src/engine/format';
+import type { ArbAlert, BotNotification, BotStatus, NetQuote, PairAlert, SideAlert } from '../src/engine/types';
 import { defaultAlert, useApp } from '../src/state/store';
 import { addNotification, kvGet, kvSet, markDelivered, recentNotifications } from './db';
 import { alertIsActive, getSettings, updateAlert, watchedPairs } from './settings';
@@ -67,7 +68,7 @@ const pairByKey = (k: string): PairConfig | undefined => allPairs().find((p) => 
 const notionalOf = (p: PairConfig) => getSettings().amounts[p.id] ?? p.defaultNotional;
 const alertOf = (id: string): PairAlert | undefined => getSettings().savedAlerts[id];
 const baseAlert = (id: string) => () => defaultAlert(id, useApp.getState().snapshots);
-const hasEnabledSide = (a?: PairAlert) => !!a && (a.buy.enabled || a.sell.enabled);
+const hasEnabledSide = anyAlertEnabled;
 
 const pairIcon = (a?: PairAlert) => (alertIsActive(a) ? '🔔' : hasEnabledSide(a) && a!.paused ? '🔕' : '▫️');
 
@@ -91,8 +92,8 @@ function homeView(): View {
   return {
     text:
       '<b>XARB monitor</b>\n' +
-      'Price alerts from the cross-chain monitor, checked around the clock.\n\n' +
-      '/alerts — pairs and their price targets\n' +
+      'Price and arbitrage alerts from the cross-chain monitor, checked around the clock.\n\n' +
+      '/alerts — pairs, price targets and arbitrage spreads\n' +
       '/history — recent notifications\n' +
       '/status — what the monitor is doing',
     markup: kb([[btn('🔔 Alerts', 'l'), btn('📜 History', 'h'), btn('📊 Status', 'st')]]),
@@ -107,7 +108,7 @@ function listView(): View {
   }
   rows.push([btn('📜 History', 'h'), btn('📊 Status', 'st')]);
   return {
-    text: '<b>Price alerts</b>\n🔔 on · 🔕 paused · ▫️ not set\nTap a pair to change it.',
+    text: '<b>Alerts</b>\n🔔 on · 🔕 paused · ▫️ not set\nTap a pair to change it.',
     markup: kb(rows),
   };
 }
@@ -126,6 +127,13 @@ function sideLine(side: 'buy' | 'sell', cfg: SideAlert, pair: PairConfig): strin
   );
 }
 
+function arbLine(cfg: ArbAlert): string {
+  return (
+    `ARB  ${cfg.enabled ? '✅' : '⛔'} spread ≥ <code>${esc(cfg.minSpread)}%</code>` +
+    ` · every ${esc(cfg.cooldown || '30')} min · buy on one network, sell on another`
+  );
+}
+
 function liveLine(pair: PairConfig): string {
   const snap = useApp.getState().snapshots[pair.id];
   const now = Date.now();
@@ -139,10 +147,15 @@ function liveLine(pair: PairConfig): string {
   }
   const buy = live.reduce((a, b) => ((b.buy ?? Infinity) < (a.buy ?? Infinity) ? b : a));
   const sell = live.reduce((a, b) => ((b.sell ?? -Infinity) > (a.sell ?? -Infinity) ? b : a));
+  const best = snap ? computeBest(pair, live, snap.at) : null;
   return (
     `Now: buy <code>${fmtPrice(buy.buy, pair.dp)}</code> (${esc(NET(buy.netId).name)})` +
     ` · sell <code>${fmtPrice(sell.sell, pair.dp)}</code> (${esc(NET(sell.netId).name)})` +
-    ` · ${fmtAge(now - Math.max(...live.map((r) => r.at)))}`
+    ` · ${fmtAge(now - Math.max(...live.map((r) => r.at)))}` +
+    (best
+      ? `\nBest arb: <code>${fmtSpread(best.spreadPct)}</code> ` +
+        `${esc(NET(best.buyNet).name)} → ${esc(NET(best.sellNet).name)}`
+      : '')
   );
 }
 
@@ -158,6 +171,7 @@ function cardView(pair: PairConfig): View {
     ],
     [btn('✏️ BUY target', `eb:${k}`), btn('✏️ SELL target', `es:${k}`)],
     [btn(`BUY: ${a.buy.op} ⇄`, `ob:${k}`), btn(`SELL: ${a.sell.op} ⇄`, `os:${k}`)],
+    [btn(`ARB ${arbOf(a).enabled ? '✅ on' : '⛔ off'}`, `a:${k}`), btn('✏️ ARB min spread', `ea:${k}`)],
   ];
   if (hasEnabledSide(saved)) rows.push([btn(saved!.paused ? '▶️ Resume pair' : '⏸ Pause pair', `z:${k}`)]);
   rows.push([btn('🔄 Refresh', `p:${k}`), btn('« All pairs', 'l')]);
@@ -165,7 +179,7 @@ function cardView(pair: PairConfig): View {
     text:
       `<b>${esc(pairName(pair))}</b> · ${state}\n` +
       `Size ${fmtNotional(notionalOf(pair), pair.unit)}\n\n` +
-      `${sideLine('buy', a.buy, pair)}\n${sideLine('sell', a.sell, pair)}\n\n` +
+      `${sideLine('buy', a.buy, pair)}\n${sideLine('sell', a.sell, pair)}\n${arbLine(arbOf(a))}\n\n` +
       liveLine(pair),
     markup: kb(rows),
   };
@@ -285,7 +299,7 @@ export function getStatus(): BotStatus {
 // ——— input ———
 
 // A chat waiting to type a new target, after pressing ✏️.
-const pending = new Map<string, { pairId: string; side: 'buy' | 'sell' }>();
+const pending = new Map<string, { pairId: string; side: 'buy' | 'sell' | 'arb' }>();
 
 /**
  * "0.9985", "below 0.9985", "> 1.001", "cooldown 20", "above 1.001 cd 5" —
@@ -325,6 +339,22 @@ async function onText(chatId: string, raw: string): Promise<void> {
       pending.delete(chatId);
       return send(chatId, { text: 'That pair no longer exists.' });
     }
+    if (waiting.side === 'arb') {
+      const p = parseEdit(text.replace(/%/g, ''));
+      if (!p || p.op) {
+        return send(chatId, {
+          text: 'Didn’t catch that. Send a spread in %, like <code>0.05</code>, optionally with <code>cooldown 30</code>. /cancel to stop.',
+        });
+      }
+      pending.delete(chatId);
+      // Setting a spread means you want it watched: switch the alert on too.
+      const patch: Partial<ArbAlert> = {
+        ...(p.price ? { minSpread: p.price, enabled: true } : {}),
+        ...(p.cooldown ? { cooldown: p.cooldown } : {}),
+      };
+      updateAlert(pair.id, (a) => ({ ...a, arb: { ...arbOf(a), ...patch } }), baseAlert(pair.id));
+      return send(chatId, cardView(pair));
+    }
     if (!patch) {
       return send(chatId, {
         text: 'Didn’t catch that. Send a price like <code>0.9985</code>, optionally with <code>above</code>/<code>below</code> or <code>cooldown 20</code>. /cancel to stop.',
@@ -361,6 +391,18 @@ async function askTarget(chatId: string, pair: PairConfig, side: 'buy' | 'sell')
   });
 }
 
+async function askArb(chatId: string, pair: PairConfig): Promise<void> {
+  const cfg = arbOf(alertOf(pair.id));
+  pending.set(chatId, { pairId: pair.id, side: 'arb' });
+  await send(chatId, {
+    text:
+      `New <b>arbitrage</b> minimum for <b>${esc(pairName(pair))}</b> — now ${esc(cfg.minSpread)}%, every ${esc(cfg.cooldown || '30')} min.\n\n` +
+      'Fires when buying on one network and selling on another pays at least this spread at the pair’s size (gas not included). ' +
+      'Send a spread in %, e.g. <code>0.05</code> or <code>0.1 cooldown 60</code>. Setting a spread turns it on. /cancel to keep it as is.',
+    markup: { force_reply: true, input_field_placeholder: cfg.minSpread },
+  });
+}
+
 async function onCallback(chatId: string, messageId: number, data: string, callbackId: string): Promise<void> {
   const [action, k] = data.split(':', 2);
   const pair = k ? pairByKey(k) : undefined;
@@ -393,6 +435,12 @@ async function onCallback(chatId: string, messageId: number, data: string, callb
     const side = action === 'ob' ? 'buy' : 'sell';
     updateAlert(pair!.id, (x) => ({ ...x, [side]: { ...x[side], op: x[side].op === 'above' ? 'below' : 'above' } }), baseAlert(pair!.id));
     await edit(chatId, messageId, cardView(pair!));
+  } else if (action === 'a') {
+    const a = updateAlert(pair!.id, (x) => ({ ...x, arb: { ...arbOf(x), enabled: !arbOf(x).enabled } }), baseAlert(pair!.id));
+    toast = `Arbitrage alert ${arbOf(a).enabled ? `on (≥ ${arbOf(a).minSpread}%)` : 'off'}`;
+    await edit(chatId, messageId, cardView(pair!));
+  } else if (action === 'ea') {
+    await askArb(chatId, pair!);
   } else if (action === 'eb' || action === 'es') {
     await askTarget(chatId, pair!, action === 'eb' ? 'buy' : 'sell');
   } else if (action === 'z' || action === 'za') {
@@ -461,7 +509,7 @@ export async function startBot(): Promise<void> {
     botUsername = (await tg<{ username: string }>('getMe')).username;
     await tg('setMyCommands', {
       commands: [
-        { command: 'alerts', description: 'Pairs and price targets' },
+        { command: 'alerts', description: 'Pairs, price targets and arbitrage spreads' },
         { command: 'history', description: 'Recent notifications' },
         { command: 'status', description: 'What the monitor is doing' },
         { command: 'help', description: 'What this bot does' },

@@ -1,10 +1,11 @@
 // Price-alert evaluation, run after every engine cycle. Same rules the browser
 // used to apply, now in the one process that is always running.
 import { NET, type NetworkId } from '../src/config/networks';
-import { allPairs, pairName } from '../src/config/pairs';
+import { allPairs, pairName, type PairConfig } from '../src/config/pairs';
+import { arbOf, computeBest } from '../src/engine/arb';
 import { requoteNet } from '../src/engine/engine';
-import { fmtPrice } from '../src/engine/format';
-import type { NetQuote } from '../src/engine/types';
+import { fmtNotional, fmtPrice, fmtProfit, fmtSpread } from '../src/engine/format';
+import type { NetQuote, PairSnapshot, SharedSettings } from '../src/engine/types';
 import { useApp } from '../src/state/store';
 import { kvGet, kvSet } from './db';
 import { alertIsActive, getSettings } from './settings';
@@ -15,7 +16,7 @@ const MAX_QUOTE_AGE_MS = 5 * 60_000;
 
 export interface AlertHit {
   pairId: string;
-  side: 'buy' | 'sell';
+  kind: 'price' | 'arb';
   text: string;
 }
 
@@ -89,7 +90,7 @@ async function check(now: number): Promise<AlertHit[]> {
         fired[key] = Date.now();
         hits.push({
           pairId: pair.id,
-          side,
+          kind: 'price',
           text:
             `⚡ ${pairName(pair)} ${side.toUpperCase()} on ${netName}: ` +
             `${fmtPrice(price, pair.dp)} is ${cfg.op} target ${cfg.price} (${fresh.router})`,
@@ -97,10 +98,58 @@ async function check(now: number): Promise<AlertHit[]> {
         break; // one firing per side per cooldown window
       }
     }
+
+    const arb = await checkArb(pair, snap, now);
+    if (arb) hits.push(arb);
   }
   if (hits.length) kvSet('fired', fired);
   return hits;
 }
+
+/**
+ * The best buy-here, sell-there spread for the pair, picked with the same
+ * rules as the opportunities feed. A spread that clears the minimum is quoted
+ * again on both networks and only reported if it still clears it.
+ */
+async function checkArb(pair: PairConfig, snap: PairSnapshot, now: number): Promise<AlertHit | null> {
+  const { savedAlerts, disabledNets, amounts } = getSettings();
+  const cfg = arbOf(savedAlerts[pair.id]);
+  if (!cfg.enabled) return null;
+  const min = parseFloat(cfg.minSpread);
+  if (!isFinite(min)) return null;
+  const key = `${pair.id}:arb`;
+  const cooldownMs = Math.max(1, parseInt(cfg.cooldown || '30', 10)) * 60_000;
+  if (now - (fired[key] ?? 0) < cooldownMs) return null;
+
+  const rows = activeRows(pair, snap, disabledNets).filter((r): r is NetQuote => usable(r, now));
+  const best = computeBest(pair, rows, snap.at);
+  if (!best || best.spreadPct < min) return null;
+
+  const [fb, fs] =
+    best.buyNet === best.sellNet
+      ? await confirm(pair.id, best.buyNet).then((r) => [r, r])
+      : await Promise.all([confirm(pair.id, best.buyNet), confirm(pair.id, best.sellNet)]);
+  const at = Date.now();
+  if (!usable(fb, at) || !usable(fs, at) || fb.buy == null || fs.sell == null) return null;
+  const spreadPct = ((fs.sell - fb.buy) / fb.buy) * 100;
+  if (spreadPct < min) return null;
+
+  fired[key] = at;
+  const notional = amounts[pair.id] ?? pair.defaultNotional;
+  return {
+    pairId: pair.id,
+    kind: 'arb',
+    text:
+      `💱 ARB ${pairName(pair)} ${fmtSpread(spreadPct)} ` +
+      `(≈ ${fmtProfit(spreadPct, notional, pair.unit)} on ${fmtNotional(notional, pair.unit)}, before gas)\n` +
+      `Buy on ${NET(best.buyNet).name} at ${fmtPrice(fb.buy, pair.dp)} (${fb.router})\n` +
+      `Sell on ${NET(best.sellNet).name} at ${fmtPrice(fs.sell, pair.dp)} (${fs.router})\n` +
+      `Min spread ${cfg.minSpread}%`,
+  };
+}
+
+const activeRows = (pair: PairConfig, snap: PairSnapshot, disabledNets: SharedSettings['disabledNets']) =>
+  pair.networks.filter((n) => !disabledNets[`${pair.id}:${n}`]).map((n) => snap.rows[n]);
 
 async function confirm(pairId: string, netId: NetworkId): Promise<NetQuote | null> {
   try {

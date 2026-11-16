@@ -111,7 +111,18 @@ const isSide = (v: unknown): boolean => {
 
 const isPairAlert = (v: unknown): boolean => {
   const a = v as Record<string, unknown> | null;
-  return !!a && isSide(a.buy) && isSide(a.sell) && (a.paused === undefined || typeof a.paused === 'boolean');
+  return (
+    !!a &&
+    isSide(a.buy) &&
+    isSide(a.sell) &&
+    (a.arb === undefined || isArb(a.arb)) &&
+    (a.paused === undefined || typeof a.paused === 'boolean')
+  );
+};
+
+const isArb = (v: unknown): boolean => {
+  const s = v as Record<string, unknown> | null;
+  return !!s && typeof s.enabled === 'boolean' && typeof s.minSpread === 'string' && typeof s.cooldown === 'string';
 };
 
 const isCustomPair = (v: unknown, key: string): boolean => {

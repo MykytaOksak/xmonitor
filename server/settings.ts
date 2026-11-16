@@ -2,6 +2,7 @@
 // follows it: every change is saved, pushed into the quote engine's store, and
 // narrows the scan to the pairs that actually have an alert to evaluate.
 import { allPairs, setCustomPairs } from '../src/config/pairs';
+import { anyAlertEnabled } from '../src/engine/arb';
 import { PAIR_DEPENDS, scanPairNow } from '../src/engine/engine';
 import { applyOps, emptySettings } from '../src/engine/settings';
 import type { PairAlert, SettingsOp, SharedSettings } from '../src/engine/types';
@@ -14,8 +15,7 @@ let version = kvGet<number>('settingsVersion', 0);
 export const getSettings = (): SharedSettings => settings;
 export const getVersion = (): number => version;
 
-export const alertIsActive = (a: PairAlert | undefined): boolean =>
-  !!a && !a.paused && (a.buy.enabled || a.sell.enabled);
+export const alertIsActive = (a: PairAlert | undefined): boolean => !!a && !a.paused && anyAlertEnabled(a);
 
 /** Pairs with an active alert, plus the pairs their pricing reads. */
 export function watchedPairs(): string[] {

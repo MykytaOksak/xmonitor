@@ -2,8 +2,10 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { NetworkId } from '../config/networks';
 import { PAIRS, pairById, setCustomPairs, type CustomPairSpec } from '../config/pairs';
+import { arbOf, DEFAULT_ARB } from '../engine/arb';
 import { fmtPrice } from '../engine/format';
 import type {
+  ArbAlert,
   BotNotification,
   BotStatus,
   NetQuote,
@@ -90,6 +92,7 @@ export interface AppState {
   setRefreshing: (pairId: string, netId: string, on: boolean) => void;
   finishPair: (pairId: string) => void;
   updateDraft: (pairId: string, side: 'buy' | 'sell', patch: Partial<PairAlert['buy']>) => void;
+  updateArbDraft: (pairId: string, patch: Partial<ArbAlert>) => void;
   toggleAlertNet: (pairId: string, side: 'buy' | 'sell', netName: string) => void;
   saveAlerts: () => void;
   setAlertPaused: (pairId: string, paused: boolean) => void;
@@ -122,6 +125,7 @@ export function defaultAlert(pairId: string, snapshots: Record<string, PairSnaps
   return {
     buy: { enabled: false, op: 'below', price: p(buy), cooldown: '15', netMode: 'all', nets: {} },
     sell: { enabled: false, op: 'above', price: p(sell), cooldown: '30', netMode: 'all', nets: {} },
+    arb: { ...DEFAULT_ARB },
   };
 }
 
@@ -286,6 +290,14 @@ export const useApp = create<AppState>()(
           const cur = s.drafts[pairId] ?? s.savedAlerts[pairId] ?? defaultAlert(pairId, s.snapshots);
           return {
             drafts: { ...s.drafts, [pairId]: { ...cur, [side]: { ...cur[side], ...patch } } },
+            saveState: 'idle',
+          };
+        }),
+      updateArbDraft: (pairId, patch) =>
+        set((s) => {
+          const cur = s.drafts[pairId] ?? s.savedAlerts[pairId] ?? defaultAlert(pairId, s.snapshots);
+          return {
+            drafts: { ...s.drafts, [pairId]: { ...cur, arb: { ...arbOf(cur), ...patch } } },
             saveState: 'idle',
           };
         }),

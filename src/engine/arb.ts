@@ -1,5 +1,5 @@
 import { RULES, type PairConfig } from '../config/pairs';
-import type { BestRoute, NetQuote } from './types';
+import type { ArbAlert, BestRoute, NetQuote, PairAlert } from './types';
 
 /**
  * Pick the best buy/sell combination for a pair from its per-network quotes,
@@ -39,3 +39,11 @@ export function computeBest(pair: PairConfig, rows: NetQuote[], now: number): Be
 
 export const tagFor = (best: BestRoute): string =>
   best.sameChain ? 'SAME-CHAIN' : Math.abs(best.spreadPct) < 0.03 ? 'THIN' : 'CROSS-CHAIN';
+
+export const DEFAULT_ARB: ArbAlert = { enabled: false, minSpread: '0.05', cooldown: '30' };
+
+export const arbOf = (a: PairAlert | undefined): ArbAlert => a?.arb ?? DEFAULT_ARB;
+
+/** Any of the three alerts switched on (paused or not). */
+export const anyAlertEnabled = (a: PairAlert | undefined): boolean =>
+  !!a && (a.buy.enabled || a.sell.enabled || arbOf(a).enabled);

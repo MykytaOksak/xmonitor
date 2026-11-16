@@ -16,7 +16,7 @@ if (refresh >= 5) useApp.setState({ refresh });
 initSettings();
 onScanCycle(() => {
   void evaluateAlerts().then((hits) => {
-    for (const hit of hits) void notify('price', hit.text, hit.pairId);
+    for (const hit of hits) void notify(hit.kind, hit.text, hit.pairId);
   });
 });
 startEngine();
