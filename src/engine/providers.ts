@@ -883,26 +883,57 @@ const binanceCex: Provider = async ({ tokenIn, tokenOut, amountInHuman }) => {
 // scanned.
 const HYDRATION_WSS = 'wss://rpc.hydradx.cloud';
 
-let hydrationSdk: Promise<any> | null = null;
-function hydrationCtx(): Promise<any> {
-  if (!hydrationSdk) {
-    hydrationSdk = (async () => {
-      const [{ ApiPromise, WsProvider }, { createSdkContext }] = await Promise.all([
-        import('@polkadot/api'),
-        import('@galacticcouncil/sdk'),
-      ]);
-      const api = await ApiPromise.create({
-        provider: new WsProvider(HYDRATION_WSS),
-        noInitWarn: true,
-      });
-      return createSdkContext(api);
+/**
+ * The SDK's router takes one snapshot of the pools on its first quote and
+ * never takes another. Pool balances reach that snapshot only through the
+ * subscriptions of the moment it was taken, so once the SDK reloads its pools
+ * (it does so on its own, e.g. after its hourly cache expiry) or a
+ * subscription drops, the router keeps pricing a pool state that no longer
+ * exists, with no error. Seen live: a trade moved apyUSD on Hydration by ~2%
+ * and a long-open tab kept quoting the old price. So the context (router
+ * included) is rebuilt on the open connection once it is this old.
+ */
+const HYDRATION_CTX_MAX_AGE_MS = 60_000;
+
+let hydrationApi: Promise<any> | null = null;
+function hydrationConnection(): Promise<any> {
+  if (!hydrationApi) {
+    hydrationApi = (async () => {
+      const { ApiPromise, WsProvider } = await import('@polkadot/api');
+      return ApiPromise.create({ provider: new WsProvider(HYDRATION_WSS), noInitWarn: true });
     })().catch((e) => {
       // Never cache a failed connection — the next scan should retry.
-      hydrationSdk = null;
+      hydrationApi = null;
       throw e;
     });
   }
-  return hydrationSdk;
+  return hydrationApi;
+}
+
+let hydrationSdk: { ctx: Promise<any>; at: number } | null = null;
+function hydrationCtx(): Promise<any> {
+  const now = Date.now();
+  if (!hydrationSdk || now - hydrationSdk.at > HYDRATION_CTX_MAX_AGE_MS) {
+    const prev = hydrationSdk;
+    const ctx = (async () => {
+      const [api, { createSdkContext }] = await Promise.all([hydrationConnection(), import('@galacticcouncil/sdk')]);
+      return createSdkContext(api);
+    })();
+    const entry = { ctx, at: now };
+    hydrationSdk = entry;
+    ctx.catch(() => {
+      if (hydrationSdk === entry) hydrationSdk = null;
+    });
+    // Stop the old context's subscriptions once the new one exists. A quote
+    // still running on it finishes from its own snapshot.
+    if (prev) {
+      void ctx
+        .then(() => prev.ctx)
+        .then((old) => old.destroy())
+        .catch(() => {});
+    }
+  }
+  return hydrationSdk!.ctx;
 }
 
 const hydrationDex: Provider = async ({ tokenIn, tokenOut, amountInHuman }) => {
